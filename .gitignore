@@ -1,0 +1,38 @@
+# 二进制
+survey.exe
+*.exe
+survey.exe~
+
+# 数据文件
+data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 临时文件
+*.tmp
+*.log
+error.txt
+
+# 截图
+*.png
+
+# 系统文件
+Thumbs.db
+Desktop.ini
+
+# Claude Code
+.claude/
+
+# OpenWolf
+.wolf/
+
+# Playwright
+.playwright-mcp/
+
+# 根目录多余文件（web/ 下已有）
+logo.gif
+Logo2.gif

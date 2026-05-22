@@ -1,0 +1,7 @@
+{
+  "port": 8080,
+  "auth_mode": "mock",
+  "mock_username": "admin",
+  "initial_admin": "admin",
+  "db_path": "data/survey.json"
+}

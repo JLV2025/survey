@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>内部调查系统</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div id="app">
+  <!-- 导航栏 -->
+  <nav class="nav" v-if="currentUser">
+    <div class="nav-left">
+      <img src="/static/logo.gif" alt="Logo" class="nav-logo">
+      <a href="#" class="nav-brand" @click.prevent="goHome">{{ t('app_name') }}</a>
+      <span class="nav-lang">
+        <button @click="setLang('zh')" :class="{active: lang==='zh'}">中</button>
+        <button @click="setLang('en')" :class="{active: lang==='en'}">EN</button>
+      </span>
+    </div>
+    <div class="nav-right">
+      <span class="nav-user">{{ currentUser.username }}</span>
+      <button v-if="currentUser.is_admin" @click="navigate('admin')" class="btn btn-sm">
+        {{ t('admin_panel') }}
+      </button>
+    </div>
+  </nav>
+
+  <!-- 内容区 -->
+  <main class="main">
+    <component :is="currentView" :key="routeKey"
+      :route-params="routeParams"
+      @navigate="navigate">
+    </component>
+  </main>
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="/static/js/i18n.js"></script>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/components/survey-fill.js"></script>
+<script src="/static/js/components/survey-stats.js"></script>
+<script src="/static/js/components/admin-dashboard.js"></script>
+<script src="/static/js/components/admin-survey-list.js"></script>
+<script src="/static/js/components/survey-designer.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
