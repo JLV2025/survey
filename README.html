@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>内部调查系统 / Internal Survey System</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; max-width: 960px; margin: 0 auto; padding: 20px; color: #333; }
+  h1 { border-bottom: 2px solid #eaecef; padding-bottom: 10px; }
+  h2 { border-bottom: 1px solid #eaecef; padding-bottom: 8px; margin-top: 30px; }
+  h3 { margin-top: 24px; }
+  hr { border: 0; border-top: 1px solid #eaecef; margin: 30px 0; }
+  pre { background: #f6f8fa; padding: 16px; border-radius: 6px; overflow-x: auto; }
+  code { background: #f6f8fa; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th, td { border: 1px solid #dfe2e5; padding: 8px 12px; text-align: left; }
+  th { background: #f6f8fa; font-weight: 600; }
+  ul, ol { padding-left: 24px; }
+  .lang-zh { }
+  .lang-en { }
+</style>
+</head>
+<body>
+
+<h1>内部调查系统 / Internal Survey System</h1>
+
+<p>轻量级企业调查系统，Go 后端 + Vue 3 前端，单一 exe 部署，零外部依赖。</p>
+<p>A lightweight enterprise survey system with Go backend and Vue 3 frontend. Single binary deployment, zero external dependencies.</p>
+
+<hr>
+
+<h2>中文文档</h2>
+
+<h3>功能特性</h3>
+<ul>
+  <li><strong>问卷设计器</strong>：拖拽式创建题目，支持单选、多选、填空题（单行/多行）</li>
+  <li><strong>分步填写</strong>：受访者以分步向导模式填写，每页一道题</li>
+  <li><strong>身份识别</strong>：支持 Windows NTLM 域认证；开发环境使用 Mock 模式</li>
+  <li><strong>防重复提交</strong>：基于用户名的提交锁定，已提交者不可重复填写</li>
+  <li><strong>匿名调查</strong>：匿名模式下不显示提交者信息，导出不含用户名列</li>
+  <li><strong>实时统计</strong>：ECharts 饼图 + 表格展示，30 秒自动刷新</li>
+  <li><strong>Excel 导出</strong>：导出原始数据（Sheet 1）和统计汇总（Sheet 2）</li>
+  <li><strong>多语言</strong>：简体中文 / English 界面切换</li>
+  <li><strong>管理员白名单</strong>：支持动态增删管理员</li>
+</ul>
+
+<h3>技术栈</h3>
+<table>
+  <tr><th>层</th><th>技术</th></tr>
+  <tr><td>后端</td><td>Go 1.24 + chi/v5</td></tr>
+  <tr><td>前端</td><td>Vue 3 (CDN) + ECharts 5</td></tr>
+  <tr><td>存储</td><td>JSON 文件存储</td></tr>
+  <tr><td>导出</td><td>excelize/v2</td></tr>
+  <tr><td>部署</td><td>单一 exe，无外部依赖</td></tr>
+</table>
+
+<h3>快速开始</h3>
+<p><strong>前置条件</strong>：Go 1.21+</p>
+<pre><code>git clone https://github.com/JLV2025/survey.git
+cd survey
+go build -o survey.exe .
+./survey.exe</code></pre>
+<p>访问 <code>http://localhost:8080</code>，默认管理员账号 <code>admin</code>（Mock 模式下无需密码）。</p>
+
+<h3>部署到 Windows Server</h3>
+
+<h4>方式一：直接运行</h4>
+<pre><code>go build -o survey.exe .
+Start-Process -NoNewWindow .\survey.exe</code></pre>
+
+<h4>方式二：注册为 Windows 服务（推荐）</h4>
+<p>使用 <a href="https://nssm.cc/">NSSM</a>（Non-Sucking Service Manager）：</p>
+<pre><code>nssm install SurveyService "C:\apps\survey\survey.exe"
+nssm set SurveyService AppDirectory "C:\apps\survey"
+nssm start SurveyService</code></pre>
+
+<h4>目录结构要求</h4>
+<pre><code>survey/
+├── survey.exe
+├── config.json
+├── web/              # 前端静态文件（必须）
+│   ├── index.html
+│   ├── css/
+│   ├── js/
+│   └── logo.gif
+└── data/             # 数据目录（自动创建）</code></pre>
+
+<h4>防火墙配置</h4>
+<pre><code>New-NetFirewallRule -DisplayName "Survey System" -Direction Inbound -Port 8080 -Protocol TCP -Action Allow</code></pre>
+
+<h3>配置说明</h3>
+<p><code>config.json</code>：</p>
+<table>
+  <tr><th>字段</th><th>说明</th></tr>
+  <tr><td><code>port</code></td><td>服务端口</td></tr>
+  <tr><td><code>auth_mode</code></td><td>认证模式：<code>mock</code>（开发）或 <code>ntlm</code>（生产）</td></tr>
+  <tr><td><code>mock_username</code></td><td>Mock 模式下的固定用户名</td></tr>
+  <tr><td><code>initial_admin</code></td><td>首次启动时自动创建的管理员用户名</td></tr>
+  <tr><td><code>db_path</code></td><td>JSON 数据文件路径</td></tr>
+</table>
+<p><strong>NTLM 模式</strong>：将 <code>auth_mode</code> 设为 <code>ntlm</code>，<code>mock_username</code> 留空。系统将从 <code>X-Forwarded-User</code> 或 <code>X-Remote-User</code> HTTP Header 读取用户名（由前置 NTLM 代理注入）。</p>
+
+<h3>使用指南</h3>
+
+<h4>管理员操作</h4>
+<ol>
+  <li>打开 <code>http://&lt;服务器&gt;:8080</code>，自动进入管理后台</li>
+  <li><strong>新建问卷</strong>：点击"新建问卷"，填写标题、描述，选择是否匿名</li>
+  <li><strong>设计问卷</strong>：点击"设计"，从左侧拖拽题型到画布，编辑题目和选项</li>
+  <li><strong>发布问卷</strong>：在问卷列表点击"发布"</li>
+  <li><strong>分发链接</strong>：点击"复制链接"，将 URL 发送给受访者</li>
+  <li><strong>查看统计</strong>：点击"统计"，查看饼图和汇总数据</li>
+  <li><strong>导出数据</strong>：点击"导出"，下载 Excel 文件</li>
+</ol>
+
+<h4>受访者操作</h4>
+<ol>
+  <li>打开问卷链接（如 <code>http://&lt;服务器&gt;:8080/#/fill/&lt;问卷ID&gt;</code>）</li>
+  <li>按分步向导逐题填写</li>
+  <li>草稿自动保存在浏览器中，关闭后重新打开可恢复</li>
+  <li>点击"提交"完成，不可修改</li>
+  <li>提交后自动跳转至统计页面</li>
+</ol>
+
+<h3>项目结构</h3>
+<pre><code>survey/
+├── main.go                    # 入口
+├── config.json                # 配置文件
+├── internal/
+│   ├── handler/               # HTTP 处理器
+│   ├── middleware/auth.go     # 认证中间件
+│   ├── model/models.go        # 数据模型
+│   └── store/db.go            # JSON 文件存储
+├── web/                       # 前端
+│   ├── index.html             # SPA 入口
+│   ├── css/style.css          # 样式
+│   └── js/                    # Vue 组件 + API + i18n
+└── data/                      # 运行时数据（自动创建）</code></pre>
+
+<hr>
+
+<h2>English Documentation</h2>
+
+<h3>Features</h3>
+<ul>
+  <li>Drag-and-drop survey designer (single/multiple choice, short/long text)</li>
+  <li>Step wizard for respondents (one question per page)</li>
+  <li>Windows NTLM domain auth; mock mode for development</li>
+  <li>Duplicate submission prevention</li>
+  <li>Anonymous survey mode</li>
+  <li>Real-time ECharts statistics with 30s auto-refresh</li>
+  <li>Excel export (raw data + summary)</li>
+  <li>i18n: Simplified Chinese / English</li>
+  <li>Admin whitelist management</li>
+</ul>
+
+<h3>Tech Stack</h3>
+<table>
+  <tr><th>Layer</th><th>Technology</th></tr>
+  <tr><td>Backend</td><td>Go 1.24 + chi/v5</td></tr>
+  <tr><td>Frontend</td><td>Vue 3 (CDN) + ECharts 5</td></tr>
+  <tr><td>Storage</td><td>JSON file</td></tr>
+  <tr><td>Export</td><td>excelize/v2</td></tr>
+  <tr><td>Deployment</td><td>Single binary, zero dependencies</td></tr>
+</table>
+
+<h3>Quick Start</h3>
+<p><strong>Prerequisites</strong>: Go 1.21+</p>
+<pre><code>git clone https://github.com/JLV2025/survey.git
+cd survey
+go build -o survey.exe .
+./survey.exe</code></pre>
+<p>Open <code>http://localhost:8080</code>. Default admin: <code>admin</code> (no password in mock mode).</p>
+
+<h3>Deploy to Windows Server</h3>
+
+<h4>Option 1: Direct Run</h4>
+<pre><code>go build -o survey.exe .
+Start-Process -NoNewWindow .\survey.exe</code></pre>
+
+<h4>Option 2: Windows Service (Recommended)</h4>
+<pre><code>nssm install SurveyService "C:\apps\survey\survey.exe"
+nssm set SurveyService AppDirectory "C:\apps\survey"
+nssm start SurveyService</code></pre>
+
+<h4>Firewall</h4>
+<pre><code>New-NetFirewallRule -DisplayName "Survey System" -Direction Inbound -Port 8080 -Protocol TCP -Action Allow</code></pre>
+
+<h3>Configuration</h3>
+<p><code>config.json</code>:</p>
+<table>
+  <tr><th>Field</th><th>Description</th></tr>
+  <tr><td><code>port</code></td><td>Server port (default: 8080)</td></tr>
+  <tr><td><code>auth_mode</code></td><td><code>mock</code> (dev) or <code>ntlm</code> (production)</td></tr>
+  <tr><td><code>mock_username</code></td><td>Fixed username in mock mode</td></tr>
+  <tr><td><code>initial_admin</code></td><td>Auto-created admin on first run</td></tr>
+  <tr><td><code>db_path</code></td><td>JSON data file path</td></tr>
+</table>
+<p><strong>NTLM Mode</strong>: Set <code>auth_mode</code> to <code>ntlm</code>, leave <code>mock_username</code> empty. Username is read from <code>X-Forwarded-User</code> or <code>X-Remote-User</code> header.</p>
+
+<h3>License</h3>
+<p>MIT</p>
+
+</body>
+</html>

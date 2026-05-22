@@ -34,5 +34,5 @@ Desktop.ini
 .playwright-mcp/
 
 # 根目录多余文件（web/ 下已有）
-logo.gif
-Logo2.gif
+/logo.gif
+/Logo2.gif
