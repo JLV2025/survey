@@ -87,7 +87,7 @@ type OptionCount struct {
 
 // APIResponse 通用 API 响应
 type APIResponse struct {
-	Ok      bool        `json:"ok"`
-	Data    interface{} `json:"data,omitempty"`
-	Message string      `json:"message,omitempty"`
+	Ok      bool   `json:"ok"`
+	Data    any    `json:"data,omitempty"`
+	Message string `json:"message,omitempty"`
 }

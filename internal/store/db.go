@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -46,11 +47,7 @@ func Init(dbPath string) {
 		Admins:      []model.Admin{},
 	}
 	// 确保目录存在
-	dir := dbPath[:strings.LastIndex(dbPath, "/")]
-	if strings.Contains(dbPath, "\\") {
-		dir = dbPath[:strings.LastIndex(dbPath, "\\")]
-	}
-	if dir != "" {
+	if dir := filepath.Dir(dbPath); dir != "." {
 		os.MkdirAll(dir, 0755)
 	}
 	DB.load()
@@ -116,10 +113,7 @@ func read(fn func() error) error {
 
 // SeedAdmin 初始化首个管理员
 func SeedAdmin(username string) {
-	// 标准化用户名：去掉 DOMAIN\ 前缀
-	if idx := strings.LastIndex(username, "\\"); idx >= 0 {
-		username = username[idx+1:]
-	}
+	username = normalizeUser(username)
 	if DB == nil {
 		return
 	}
@@ -249,8 +243,8 @@ func DeleteSurvey(id string) error {
 				qids = append(qids, q.ID)
 			}
 		}
-		DB.Data.Questions = filterQuestions(DB.Data.Questions, func(q model.Question) bool { return q.SurveyID != id })
-		DB.Data.Options = filterOptions(DB.Data.Options, func(o model.Option) bool {
+		DB.Data.Questions = filter(DB.Data.Questions, func(q model.Question) bool { return q.SurveyID != id })
+		DB.Data.Options = filter(DB.Data.Options, func(o model.Option) bool {
 			for _, qid := range qids {
 				if o.QuestionID == qid {
 					return false
@@ -258,8 +252,8 @@ func DeleteSurvey(id string) error {
 			}
 			return true
 		})
-		DB.Data.Submissions = filterSubmissions(DB.Data.Submissions, func(s model.Submission) bool { return s.SurveyID != id })
-		DB.Data.Answers = filterAnswers(DB.Data.Answers, func(a model.Answer) bool {
+		DB.Data.Submissions = filter(DB.Data.Submissions, func(s model.Submission) bool { return s.SurveyID != id })
+		DB.Data.Answers = filter(DB.Data.Answers, func(a model.Answer) bool {
 			for _, sub := range DB.Data.Submissions {
 				if a.SubmissionID == sub.ID {
 					return false
@@ -267,7 +261,7 @@ func DeleteSurvey(id string) error {
 			}
 			return true
 		})
-		DB.Data.Surveys = filterSurveys(DB.Data.Surveys, func(s model.Survey) bool { return s.ID != id })
+		DB.Data.Surveys = filter(DB.Data.Surveys, func(s model.Survey) bool { return s.ID != id })
 		return nil
 	})
 }
@@ -304,7 +298,7 @@ func CreateQuestion(q *model.Question) error {
 func UpdateQuestion(q *model.Question) error {
 	return write(func() error {
 		// 删除旧选项
-		DB.Data.Options = filterOptions(DB.Data.Options, func(o model.Option) bool { return o.QuestionID != q.ID })
+		DB.Data.Options = filter(DB.Data.Options, func(o model.Option) bool { return o.QuestionID != q.ID })
 		// 写入新选项
 		for i := range q.Options {
 			if q.Options[i].ID == "" {
@@ -329,8 +323,8 @@ func UpdateQuestion(q *model.Question) error {
 // DeleteQuestion 删除题目
 func DeleteQuestion(questionID string) error {
 	return write(func() error {
-		DB.Data.Questions = filterQuestions(DB.Data.Questions, func(q model.Question) bool { return q.ID != questionID })
-		DB.Data.Options = filterOptions(DB.Data.Options, func(o model.Option) bool { return o.QuestionID != questionID })
+		DB.Data.Questions = filter(DB.Data.Questions, func(q model.Question) bool { return q.ID != questionID })
+		DB.Data.Options = filter(DB.Data.Options, func(o model.Option) bool { return o.QuestionID != questionID })
 		return nil
 	})
 }
@@ -424,10 +418,7 @@ func ListAdmins() []model.Admin {
 
 // AddAdmin 添加管理员
 func AddAdmin(username string) (*model.Admin, error) {
-	// 标准化用户名
-	if idx := strings.LastIndex(username, "\\"); idx >= 0 {
-		username = username[idx+1:]
-	}
+	username = normalizeUser(username)
 	var result *model.Admin
 	err := write(func() error {
 		for _, a := range DB.Data.Admins {
@@ -449,15 +440,23 @@ func AddAdmin(username string) (*model.Admin, error) {
 // RemoveAdmin 删除管理员
 func RemoveAdmin(id string) error {
 	return write(func() error {
-		DB.Data.Admins = filterAdmins(DB.Data.Admins, func(a model.Admin) bool { return a.ID != id })
+		DB.Data.Admins = filter(DB.Data.Admins, func(a model.Admin) bool { return a.ID != id })
 		return nil
 	})
 }
 
+// normalizeUser 去掉 DOMAIN\ 前缀
+func normalizeUser(u string) string {
+	if idx := strings.LastIndex(u, "\\"); idx >= 0 {
+		return u[idx+1:]
+	}
+	return u
+}
+
 // ====== 辅助过滤函数 ======
 
-func filterSurveys(items []model.Survey, fn func(model.Survey) bool) []model.Survey {
-	var result []model.Survey
+func filter[T any](items []T, fn func(T) bool) []T {
+	var result []T
 	for _, item := range items {
 		if fn(item) {
 			result = append(result, item)
@@ -466,52 +465,31 @@ func filterSurveys(items []model.Survey, fn func(model.Survey) bool) []model.Sur
 	return result
 }
 
-func filterQuestions(items []model.Question, fn func(model.Question) bool) []model.Question {
-	var result []model.Question
-	for _, item := range items {
-		if fn(item) {
-			result = append(result, item)
+// CountOptions 统计选项计数
+func CountOptions(q model.Question, submissions []model.Submission) map[string]int {
+	counts := make(map[string]int)
+	for _, o := range q.Options {
+		counts[o.Content] = 0
+	}
+	for _, sub := range submissions {
+		for _, a := range sub.Answers {
+			if a.QuestionID != q.ID {
+				continue
+			}
+			for _, o := range q.Options {
+				if q.Type == "single" {
+					if a.Content == o.ID {
+						counts[o.Content]++
+					}
+				} else {
+					for _, p := range strings.Split(a.Content, ",") {
+						if strings.TrimSpace(p) == o.ID {
+							counts[o.Content]++
+						}
+					}
+				}
+			}
 		}
 	}
-	return result
-}
-
-func filterOptions(items []model.Option, fn func(model.Option) bool) []model.Option {
-	var result []model.Option
-	for _, item := range items {
-		if fn(item) {
-			result = append(result, item)
-		}
-	}
-	return result
-}
-
-func filterSubmissions(items []model.Submission, fn func(model.Submission) bool) []model.Submission {
-	var result []model.Submission
-	for _, item := range items {
-		if fn(item) {
-			result = append(result, item)
-		}
-	}
-	return result
-}
-
-func filterAnswers(items []model.Answer, fn func(model.Answer) bool) []model.Answer {
-	var result []model.Answer
-	for _, item := range items {
-		if fn(item) {
-			result = append(result, item)
-		}
-	}
-	return result
-}
-
-func filterAdmins(items []model.Admin, fn func(model.Admin) bool) []model.Admin {
-	var result []model.Admin
-	for _, item := range items {
-		if fn(item) {
-			result = append(result, item)
-		}
-	}
-	return result
+	return counts
 }

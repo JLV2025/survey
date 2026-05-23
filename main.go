@@ -28,7 +28,7 @@ type Config struct {
 func loadConfig() Config {
 	cfg := Config{
 		Port:   8080,
-		DBPath: "data/survey.db",
+		DBPath: "data/survey.json",
 	}
 	data, err := os.ReadFile("config.json")
 	if err != nil {
@@ -87,20 +87,20 @@ func main() {
 
 		// 管理员路由
 		r.Route("/admin", func(r chi.Router) {
-			r.Get("/surveys", handler.ListAdminSurveys)
-			r.Post("/surveys", handler.CreateAdminSurvey)
-			r.Put("/surveys/{id}", handler.UpdateAdminSurvey)
-			r.Delete("/surveys/{id}", handler.DeleteAdminSurvey)
-			r.Put("/surveys/{id}/status", handler.UpdateSurveyStatus)
-			r.Post("/surveys/{id}/questions", handler.CreateQuestion)
-			r.Put("/surveys/{id}/questions/{qid}", handler.UpdateQuestion)
-			r.Delete("/surveys/{id}/questions/{qid}", handler.DeleteQuestion)
-			r.Put("/surveys/{id}/questions/reorder", handler.ReorderQuestions)
-			r.Get("/surveys/{id}/submissions", handler.ListSubmissions)
-			r.Get("/surveys/{id}/export", handler.ExportExcel)
-			r.Get("/users", handler.ListAdmins)
-			r.Post("/users", handler.AddAdmin)
-			r.Delete("/users/{id}", handler.RemoveAdmin)
+			r.Get("/surveys", handler.RequireAdmin(handler.ListAdminSurveys))
+			r.Post("/surveys", handler.RequireAdmin(handler.CreateAdminSurvey))
+			r.Put("/surveys/{id}", handler.RequireAdmin(handler.UpdateAdminSurvey))
+			r.Delete("/surveys/{id}", handler.RequireAdmin(handler.DeleteAdminSurvey))
+			r.Put("/surveys/{id}/status", handler.RequireAdmin(handler.UpdateSurveyStatus))
+			r.Post("/surveys/{id}/questions", handler.RequireAdmin(handler.CreateQuestion))
+			r.Put("/surveys/{id}/questions/{qid}", handler.RequireAdmin(handler.UpdateQuestion))
+			r.Delete("/surveys/{id}/questions/{qid}", handler.RequireAdmin(handler.DeleteQuestion))
+			r.Put("/surveys/{id}/questions/reorder", handler.RequireAdmin(handler.ReorderQuestions))
+			r.Get("/surveys/{id}/submissions", handler.RequireAdmin(handler.ListSubmissions))
+			r.Get("/surveys/{id}/export", handler.RequireAdmin(handler.ExportExcel))
+			r.Get("/users", handler.RequireAdmin(handler.ListAdmins))
+			r.Post("/users", handler.RequireAdmin(handler.AddAdmin))
+			r.Delete("/users/{id}", handler.RequireAdmin(handler.RemoveAdmin))
 		})
 	})
 

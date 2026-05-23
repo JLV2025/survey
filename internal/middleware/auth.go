@@ -41,3 +41,11 @@ func GetUsername(r *http.Request) string {
 	}
 	return ""
 }
+
+// NormalizeUsername 标准化用户名：去掉 DOMAIN\ 前缀
+func NormalizeUsername(username string) string {
+	if idx := strings.LastIndex(username, "\\"); idx >= 0 {
+		return username[idx+1:]
+	}
+	return username
+}

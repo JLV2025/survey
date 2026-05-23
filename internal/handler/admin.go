@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"survey/internal/middleware"
 	"survey/internal/model"
@@ -18,7 +17,7 @@ import (
 // GetMe 获取当前用户信息
 func GetMe(w http.ResponseWriter, r *http.Request) {
 	username := middleware.GetUsername(r)
-	writeJSON(w, 200, okResp(map[string]interface{}{
+	writeJSON(w, 200, okResp(map[string]any{
 		"username": username,
 		"is_admin": store.IsAdmin(username),
 	}))
@@ -128,38 +127,13 @@ func GetStats(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if q.Type == "single" || q.Type == "multiple" {
-			// 统计选项计数
-			counts := make(map[string]int)
-			for _, o := range q.Options {
-				counts[o.Content] = 0
-			}
-			for _, sub := range submissions {
-				for _, a := range sub.Answers {
-					if a.QuestionID == q.ID {
-						for _, o := range q.Options {
-							if q.Type == "single" {
-								if a.Content == o.ID {
-									counts[o.Content]++
-								}
-							} else {
-								// 多选题，逗号分隔
-								parts := strings.Split(a.Content, ",")
-								for _, p := range parts {
-									if strings.TrimSpace(p) == o.ID {
-										counts[o.Content]++
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-			for _, o := range q.Options {
-				qs.OptionCounts = append(qs.OptionCounts, model.OptionCount{
-					Content: o.Content,
-					Count:   counts[o.Content],
-				})
-			}
+		counts := store.CountOptions(q, submissions)
+		for _, o := range q.Options {
+		 qs.OptionCounts = append(qs.OptionCounts, model.OptionCount{
+		 Content: o.Content,
+		  Count:   counts[o.Content],
+		 })
+		}
 		} else {
 			// 文本题：收集所有答案
 			for _, sub := range submissions {
@@ -181,25 +155,11 @@ func GetStats(w http.ResponseWriter, r *http.Request) {
 
 // ListAdminSurveys 管理员获取所有问卷列表
 func ListAdminSurveys(w http.ResponseWriter, r *http.Request) {
-	username := middleware.GetUsername(r)
-	if !store.IsAdmin(username) {
-		writeJSON(w, 403, errResp("无权限"))
-		return
-	}
-	surveys := store.ListSurveys()
-	if surveys == nil {
-		surveys = []model.Survey{}
-	}
-	writeJSON(w, 200, okResp(surveys))
+	writeJSON(w, 200, okResp(store.ListSurveys()))
 }
 
 // CreateAdminSurvey 创建问卷
 func CreateAdminSurvey(w http.ResponseWriter, r *http.Request) {
-	username := middleware.GetUsername(r)
-	if !store.IsAdmin(username) {
-		writeJSON(w, 403, errResp("无权限"))
-		return
-	}
 	var s model.Survey
 	if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
 		writeJSON(w, 400, errResp("请求格式错误"))
@@ -218,11 +178,6 @@ func CreateAdminSurvey(w http.ResponseWriter, r *http.Request) {
 
 // UpdateAdminSurvey 更新问卷元信息
 func UpdateAdminSurvey(w http.ResponseWriter, r *http.Request) {
-	username := middleware.GetUsername(r)
-	if !store.IsAdmin(username) {
-		writeJSON(w, 403, errResp("无权限"))
-		return
-	}
 	id := chi.URLParam(r, "id")
 	survey, _ := store.GetSurvey(id)
 	if survey == nil {
@@ -247,11 +202,6 @@ func UpdateAdminSurvey(w http.ResponseWriter, r *http.Request) {
 
 // DeleteAdminSurvey 删除问卷
 func DeleteAdminSurvey(w http.ResponseWriter, r *http.Request) {
-	username := middleware.GetUsername(r)
-	if !store.IsAdmin(username) {
-		writeJSON(w, 403, errResp("无权限"))
-		return
-	}
 	id := chi.URLParam(r, "id")
 	if err := store.DeleteSurvey(id); err != nil {
 		writeJSON(w, 500, errResp("删除失败"))
@@ -262,11 +212,6 @@ func DeleteAdminSurvey(w http.ResponseWriter, r *http.Request) {
 
 // UpdateSurveyStatus 更新问卷状态
 func UpdateSurveyStatus(w http.ResponseWriter, r *http.Request) {
-	username := middleware.GetUsername(r)
-	if !store.IsAdmin(username) {
-		writeJSON(w, 403, errResp("无权限"))
-		return
-	}
 	id := chi.URLParam(r, "id")
 	survey, _ := store.GetSurvey(id)
 	if survey == nil {
@@ -290,25 +235,11 @@ func UpdateSurveyStatus(w http.ResponseWriter, r *http.Request) {
 
 // ListAdmins 管理员列表
 func ListAdmins(w http.ResponseWriter, r *http.Request) {
-	username := middleware.GetUsername(r)
-	if !store.IsAdmin(username) {
-		writeJSON(w, 403, errResp("无权限"))
-		return
-	}
-	admins := store.ListAdmins()
-	if admins == nil {
-		admins = []model.Admin{}
-	}
-	writeJSON(w, 200, okResp(admins))
+	writeJSON(w, 200, okResp(store.ListAdmins()))
 }
 
 // AddAdmin 添加管理员
 func AddAdmin(w http.ResponseWriter, r *http.Request) {
-	username := middleware.GetUsername(r)
-	if !store.IsAdmin(username) {
-		writeJSON(w, 403, errResp("无权限"))
-		return
-	}
 	var body struct {
 		Username string `json:"username"`
 	}
@@ -320,11 +251,7 @@ func AddAdmin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, errResp("用户名不能为空"))
 		return
 	}
-	// 标准化用户名：去掉 DOMAIN\ 前缀
-	name := body.Username
-	if idx := strings.LastIndex(name, "\\"); idx >= 0 {
-		name = name[idx+1:]
-	}
+	name := middleware.NormalizeUsername(body.Username)
 	admin, err := store.AddAdmin(name)
 	if err != nil {
 		writeJSON(w, 500, errResp("添加失败"))
@@ -335,11 +262,6 @@ func AddAdmin(w http.ResponseWriter, r *http.Request) {
 
 // RemoveAdmin 删除管理员
 func RemoveAdmin(w http.ResponseWriter, r *http.Request) {
-	username := middleware.GetUsername(r)
-	if !store.IsAdmin(username) {
-		writeJSON(w, 403, errResp("无权限"))
-		return
-	}
 	id := chi.URLParam(r, "id")
 	if err := store.RemoveAdmin(id); err != nil {
 		writeJSON(w, 500, errResp("删除失败"))
@@ -350,15 +272,5 @@ func RemoveAdmin(w http.ResponseWriter, r *http.Request) {
 
 // ListSubmissions 查看提交列表
 func ListSubmissions(w http.ResponseWriter, r *http.Request) {
-	username := middleware.GetUsername(r)
-	if !store.IsAdmin(username) {
-		writeJSON(w, 403, errResp("无权限"))
-		return
-	}
-	surveyID := chi.URLParam(r, "id")
-	submissions := store.GetSubmissions(surveyID)
-	if submissions == nil {
-		submissions = []model.Submission{}
-	}
-	writeJSON(w, 200, okResp(submissions))
+	writeJSON(w, 200, okResp(store.GetSubmissions(chi.URLParam(r, "id"))))
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"survey/internal/middleware"
 	"survey/internal/model"
 	"survey/internal/store"
 
@@ -13,11 +12,6 @@ import (
 
 // CreateQuestion 创建题目
 func CreateQuestion(w http.ResponseWriter, r *http.Request) {
-	username := middleware.GetUsername(r)
-	if !store.IsAdmin(username) {
-		writeJSON(w, 403, errResp("无权限"))
-		return
-	}
 	surveyID := chi.URLParam(r, "id")
 
 	var q model.Question
@@ -36,11 +30,6 @@ func CreateQuestion(w http.ResponseWriter, r *http.Request) {
 
 // UpdateQuestion 更新题目
 func UpdateQuestion(w http.ResponseWriter, r *http.Request) {
-	username := middleware.GetUsername(r)
-	if !store.IsAdmin(username) {
-		writeJSON(w, 403, errResp("无权限"))
-		return
-	}
 	qid := chi.URLParam(r, "qid")
 
 	var body model.Question
@@ -59,11 +48,6 @@ func UpdateQuestion(w http.ResponseWriter, r *http.Request) {
 
 // DeleteQuestion 删除题目
 func DeleteQuestion(w http.ResponseWriter, r *http.Request) {
-	username := middleware.GetUsername(r)
-	if !store.IsAdmin(username) {
-		writeJSON(w, 403, errResp("无权限"))
-		return
-	}
 	qid := chi.URLParam(r, "qid")
 
 	if err := store.DeleteQuestion(qid); err != nil {
@@ -75,11 +59,6 @@ func DeleteQuestion(w http.ResponseWriter, r *http.Request) {
 
 // ReorderQuestions 题目排序
 func ReorderQuestions(w http.ResponseWriter, r *http.Request) {
-	username := middleware.GetUsername(r)
-	if !store.IsAdmin(username) {
-		writeJSON(w, 403, errResp("无权限"))
-		return
-	}
 	surveyID := chi.URLParam(r, "id")
 
 	var body struct {
