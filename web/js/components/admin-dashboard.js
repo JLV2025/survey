@@ -25,13 +25,23 @@ window.__adminDashboard = {
     goCreate() { this.$emit('navigate', 'admin/surveys'); },
     async toggleStatus(survey) {
       const newStatus = survey.status === 'published' ? 'closed' : 'published';
-      await updateSurveyStatus(survey.id, newStatus);
-      await this.load();
+      try {
+        await updateSurveyStatus(survey.id, newStatus);
+        await this.load();
+      } catch (e) {
+        console.error('切换状态失败', e);
+        alert(this.t('operation_failed') || '操作失败，请检查权限');
+      }
     },
     async deleteOne(survey) {
       if (!confirm(this.t('confirm_delete'))) return;
-      await deleteSurvey(survey.id);
-      await this.load();
+      try {
+        await deleteSurvey(survey.id);
+        await this.load();
+      } catch (e) {
+        console.error('删除问卷失败', e);
+        alert(this.t('delete_failed') || '删除失败，请检查权限或网络连接');
+      }
     },
     copyURL(survey) {
       const url = getSurveyURL(survey.id);

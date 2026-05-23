@@ -1,6 +1,7 @@
 {
   "port": 8080,
   "auth_mode": "ntlm",
-  "initial_admin": "your_domain_admin",
+  "mock_username": "",
+  "initial_admin": "",
   "db_path": "data/survey.json"
 }

@@ -127,13 +127,13 @@ func GetStats(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if q.Type == "single" || q.Type == "multiple" {
-		counts := store.CountOptions(q, submissions)
-		for _, o := range q.Options {
-		 qs.OptionCounts = append(qs.OptionCounts, model.OptionCount{
-		 Content: o.Content,
-		  Count:   counts[o.Content],
-		 })
-		}
+			counts := store.CountOptions(q, submissions)
+			for _, o := range q.Options {
+				qs.OptionCounts = append(qs.OptionCounts, model.OptionCount{
+					Content: o.Content,
+					Count:   counts[o.Content],
+				})
+			}
 		} else {
 			// 文本题：收集所有答案
 			for _, sub := range submissions {

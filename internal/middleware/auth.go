@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -22,6 +23,9 @@ func AuthMiddleware(mockUsername string) func(http.Handler) http.Handler {
 				username = r.Header.Get("X-Forwarded-User")
 				if username == "" {
 					username = r.Header.Get("X-Remote-User")
+				}
+				if username == "" {
+					log.Printf("WARNING: 认证头缺失 — 请在 NTLM 代理（如 IIS）后方部署, 或设置 mock_username 用于测试")
 				}
 			}
 			// 标准化：去掉 DOMAIN\ 前缀，只保留用户名部分

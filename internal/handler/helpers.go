@@ -26,8 +26,13 @@ func errResp(msg string) model.APIResponse {
 // RequireAdmin 包装 handler，自动校验管理员权限
 func RequireAdmin(handler http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !store.IsAdmin(middleware.GetUsername(r)) {
-			writeJSON(w, 403, errResp("无权限"))
+		username := middleware.GetUsername(r)
+		if username == "" {
+			writeJSON(w, 403, errResp("认证失败：用户名为空，请检查是否通过 NTLM 代理访问"))
+			return
+		}
+		if !store.IsAdmin(username) {
+			writeJSON(w, 403, errResp("无管理员权限"))
 			return
 		}
 		handler(w, r)

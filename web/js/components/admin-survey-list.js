@@ -27,8 +27,12 @@ window.__adminSurveyList = {
       return 'badge ' + (map[s] || '');
     },
     async loadSurveys() {
-      const res = await fetchAdminSurveys();
-      if (res.ok) this.surveys = res.data || [];
+      try {
+        const res = await fetchAdminSurveys();
+        if (res.ok) this.surveys = res.data || [];
+      } catch (e) {
+        console.error('加载问卷列表失败', e);
+      }
       this.loading = false;
     },
     goDesign(id) { this.$emit('navigate', 'admin/design/' + id); },
@@ -58,27 +62,41 @@ window.__adminSurveyList = {
         is_anonymous: this.formAnonymous,
         deadline: this.formDeadline,
       };
-      if (this.editSurvey) {
-        await updateSurvey(this.editSurvey.id, data);
-      } else {
-        const res = await createSurvey(data);
-        if (res.ok && res.data) {
-          this.showForm = false;
-          this.$emit('navigate', 'admin/design/' + res.data.id);
-          return;
+      try {
+        if (this.editSurvey) {
+          await updateSurvey(this.editSurvey.id, data);
+        } else {
+          const res = await createSurvey(data);
+          if (res.ok && res.data) {
+            this.showForm = false;
+            this.$emit('navigate', 'admin/design/' + res.data.id);
+            return;
+          }
         }
+      } catch (e) {
+        console.error('保存问卷失败', e);
+        alert(this.t('save_failed') || '保存失败，请检查权限或网络连接');
       }
       this.showForm = false;
       await this.loadSurveys();
     },
     async deleteOne(s) {
       if (!confirm(this.t('confirm_delete'))) return;
-      await deleteSurvey(s.id);
-      await this.loadSurveys();
+      try {
+        await deleteSurvey(s.id);
+        await this.loadSurveys();
+      } catch (e) {
+        console.error('删除问卷失败', e);
+        alert(this.t('delete_failed') || '删除失败，请检查权限或网络连接');
+      }
     },
     async loadSubmissions(survey) {
-      const res = await fetchSubmissions(survey.id);
-      if (res.ok) this.submissions = res.data || [];
+      try {
+        const res = await fetchSubmissions(survey.id);
+        if (res.ok) this.submissions = res.data || [];
+      } catch (e) {
+        console.error('加载提交记录失败', e);
+      }
       this.showSubmissions = survey;
     },
     async exportOne(survey) {
@@ -96,18 +114,32 @@ window.__adminSurveyList = {
     },
     async loadAdmins() {
       this.showAdmins = true;
-      const res = await fetchAdmins();
-      if (res.ok) this.adminList = res.data || [];
+      try {
+        const res = await fetchAdmins();
+        if (res.ok) this.adminList = res.data || [];
+      } catch (e) {
+        console.error('加载管理员列表失败', e);
+      }
     },
     async addAdminUser() {
       if (!this.newAdminName.trim()) return;
-      await addAdmin(this.newAdminName);
-      this.newAdminName = '';
-      await this.loadAdmins();
+      try {
+        await addAdmin(this.newAdminName);
+        this.newAdminName = '';
+        await this.loadAdmins();
+      } catch (e) {
+        console.error('添加管理员失败', e);
+        alert(this.t('add_admin_failed') || '添加管理员失败，请检查权限');
+      }
     },
     async removeAdminUser(id) {
-      await removeAdmin(id);
-      await this.loadAdmins();
+      try {
+        await removeAdmin(id);
+        await this.loadAdmins();
+      } catch (e) {
+        console.error('删除管理员失败', e);
+        alert(this.t('remove_admin_failed') || '删除管理员失败，请检查权限');
+      }
     },
   },
   mounted() { this.loadSurveys(); },

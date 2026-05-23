@@ -47,16 +47,34 @@ go build -o survey.exe .
 
 ### 部署到 Windows Server
 
-#### 方式一：直接运行
+#### 部署目录结构
 
-```powershell
-go build -o survey.exe .
-Start-Process -NoNewWindow .\survey.exe
+所有路径相对于 `survey.exe` 所在目录解析（非工作目录）：
+
+```
+C:\apps\survey\              ← 部署根目录
+├── survey.exe               ← Go 编译产物
+├── config.json              ← 配置文件（与 exe 同级）
+├── setup-iis.ps1            ← IIS 反向代理一键配置脚本
+├── web\                     ← 前端静态文件（与 exe 同级）
+│   ├── index.html
+│   ├── css\
+│   └── js\
+│       └── vendor\
+└── data\                    ← 数据目录（自动创建）
+    └── survey.json
 ```
 
-#### 方式二：注册为 Windows 服务（推荐）
+#### 方式一：直接运行（测试用）
 
-使用 [NSSM](https://nssm.cc/)（Non-Sucking Service Manager）：
+```powershell
+cd C:\apps\survey
+.\survey.exe
+```
+
+#### 方式二：注册为 Windows 服务（推荐生产环境）
+
+使用 [NSSM](https://nssm.cc/)：
 
 ```powershell
 nssm install SurveyService "C:\apps\survey\survey.exe"
@@ -64,21 +82,64 @@ nssm set SurveyService AppDirectory "C:\apps\survey"
 nssm start SurveyService
 ```
 
-#### 目录结构要求
+`AppDirectory` 设置为 exe 所在目录，确保相对路径正确解析。
 
+#### 方式三：IIS 反向代理 + NTLM（域认证生产环境）
+
+Windows 域环境下推荐此方案，IIS 负责 Windows 认证，Go 后端从 Header 读取用户名。
+
+**前提：** 在部署服务器上下载安装两个 IIS 模块（双击安装，一路下一步）：
+- [URL Rewrite](https://www.iis.net/downloads/microsoft/url-rewrite)
+- [ARR v3.0](https://www.iis.net/downloads/microsoft/application-request-routing)
+
+**一键配置：** 以管理员身份运行项目中的 `setup-iis.ps1`。
+
+**手动配置步骤：**
+
+1. 安装 IIS + Windows 认证：
+```powershell
+Install-WindowsFeature -Name Web-Server, Web-Windows-Auth, Web-Mgmt-Console
 ```
-survey/
-├── survey.exe
-├── config.json
-├── config.prod.json       # 生产环境配置模板
-├── survey.log             # 运行日志（自动生成）
-├── web/                   # 前端静态文件（必须）
-│   ├── index.html
-│   ├── css/
-│   ├── js/
-│   │   └── vendor/        # 本地化 JS 库
-│   └── logo.gif
-└── data/                  # 数据目录（自动创建）
+
+2. 创建站点并启用 Windows 认证：
+```powershell
+New-Item -Path "C:\inetpub\survey-proxy" -ItemType Directory -Force
+New-IISSite -Name "SurveyProxy" -PhysicalPath "C:\inetpub\survey-proxy" -BindingInformation "*:80:"
+Set-WebConfigurationProperty -Filter "system.webServer/security/authentication/anonymousAuthentication" -Name Enabled -Value False -Location "SurveyProxy"
+Set-WebConfigurationProperty -Filter "system.webServer/security/authentication/windowsAuthentication" -Name Enabled -Value True -Location "SurveyProxy"
+```
+
+3. 写入反向代理规则 `C:\inetpub\survey-proxy\web.config`：
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <system.webServer>
+        <rewrite>
+            <rules>
+                <rule name="ReverseProxy" stopProcessing="true">
+                    <match url="(.*)" />
+                    <action type="Rewrite" url="http://localhost:8080/{R:1}" />
+                    <serverVariables>
+                        <set name="HTTP_X-Forwarded-User" value="{REMOTE_USER}" />
+                    </serverVariables>
+                </rule>
+            </rules>
+            <allowedServerVariables>
+                <add name="HTTP_X_FORWARDED_USER" />
+            </allowedServerVariables>
+        </rewrite>
+    </system.webServer>
+</configuration>
+```
+
+4. 启用 ARR 代理：
+```powershell
+Set-WebConfigurationProperty -Filter "system.webServer/proxy" -Name Enabled -Value True -Location "SurveyProxy"
+```
+
+**认证链路：**
+```
+浏览器 → IIS (:80) → Windows 认证 → X-Forwarded-User: CORP\jingl → Go (:8080)
 ```
 
 #### 防火墙配置
@@ -93,15 +154,44 @@ New-NetFirewallRule -DisplayName "Survey System" -Direction Inbound -Port 8080 -
 
 | 字段 | 说明 |
 |---|---|
-| `port` | 服务端口 |
-| `auth_mode` | 认证模式：`mock`（开发）或 `ntlm`（生产） |
-| `mock_username` | Mock 模式下的固定用户名 |
-| `initial_admin` | 首次启动时自动创建的管理员用户名 |
-| `db_path` | JSON 数据文件路径 |
+| `port` | 服务端口（默认 8080） |
+| `auth_mode` | `mock`（开发/测试）或 `ntlm`（IIS 反向代理） |
+| `mock_username` | Mock 模式下模拟的用户名，如 `admin` 或 `CORP\jingl` |
+| `initial_admin` | 首次启动自动创建的管理员，支持域账号格式 `CORP\user` |
+| `db_path` | JSON 数据文件路径（相对路径基于 exe 目录） |
 
-**生产环境**：复制 `config.prod.json` 为 `config.json`，将 `auth_mode` 改为 `ntlm`，填写 `initial_admin` 为域账号。
+**开发/测试环境（Mock 模式）：**
+```json
+{
+  "port": 8080,
+  "auth_mode": "mock",
+  "mock_username": "admin",
+  "initial_admin": "admin",
+  "db_path": "data/survey.json"
+}
+```
 
-**NTLM 模式**：将 `auth_mode` 设为 `ntlm`，`mock_username` 留空。系统将从 `X-Forwarded-User` 或 `X-Remote-User` HTTP Header 读取用户名（由前置 NTLM 代理注入）。
+**生产环境（NTLM + IIS 反向代理）：**
+```json
+{
+  "port": 8080,
+  "auth_mode": "ntlm",
+  "mock_username": "",
+  "initial_admin": "CORP\\your_account",
+  "db_path": "data/survey.json"
+}
+```
+`mock_username` 留空，用户名由 IIS 通过 `X-Forwarded-User` Header 注入。
+
+### 故障排查
+
+| 现象 | 原因 | 解决 |
+|---|---|---|
+| 管理员页面显示"加载中"，按钮无反应 | NTLM 认证未通过，API 返回 403 | 检查是否配置了 IIS 反向代理；开发环境使用 mock 模式 |
+| 日志提示 `认证头缺失` | `mock_username` 为空且无 NTLM 代理 | 设置 `mock_username` 或配置 IIS |
+| 数据修改后刷新丢失 | `data/` 目录无写入权限 | 给 `data/` 目录添加写入权限 |
+| 找不到 config.json | 部署路径不正确 | 确保 `config.json` 与 `survey.exe` 在同级目录 |
+| NSSM 服务启动失败 | 工作目录不是 exe 所在目录 | 设置 `nssm set SurveyService AppDirectory "C:\apps\survey"` |
 
 ### API 端点
 
@@ -204,19 +294,50 @@ Open `http://localhost:8080`. Default admin: `admin` (no password in mock mode).
 
 ### Deploy to Windows Server
 
-#### Option 1: Direct Run
+#### Directory Layout
 
-```powershell
-go build -o survey.exe .
-Start-Process -NoNewWindow .\survey.exe
+All paths resolve relative to `survey.exe`, not the working directory:
+
+```
+C:\apps\survey\              ← deployment root
+├── survey.exe
+├── config.json              ← same directory as exe
+├── setup-iis.ps1            ← IIS reverse proxy setup script
+├── web\                     ← frontend files (same directory as exe)
+│   ├── index.html
+│   ├── css\
+│   └── js\
+│       └── vendor\
+└── data\                    ← auto-created
+    └── survey.json
 ```
 
-#### Option 2: Windows Service (Recommended)
+#### Option 1: Direct Run (testing)
+
+```powershell
+cd C:\apps\survey
+.\survey.exe
+```
+
+#### Option 2: Windows Service (recommended for production)
+
+Using [NSSM](https://nssm.cc/):
 
 ```powershell
 nssm install SurveyService "C:\apps\survey\survey.exe"
 nssm set SurveyService AppDirectory "C:\apps\survey"
 nssm start SurveyService
+```
+
+#### Option 3: IIS Reverse Proxy + NTLM (domain auth)
+
+**Prerequisites:** Install [URL Rewrite](https://www.iis.net/downloads/microsoft/url-rewrite) and [ARR v3.0](https://www.iis.net/downloads/microsoft/application-request-routing) on the server.
+
+**One-click:** Run `setup-iis.ps1` as Administrator.
+
+**Auth flow:**
+```
+Browser → IIS (:80) → Windows Auth → X-Forwarded-User: CORP\user → Go (:8080)
 ```
 
 #### Firewall
@@ -232,14 +353,42 @@ New-NetFirewallRule -DisplayName "Survey System" -Direction Inbound -Port 8080 -
 | Field | Description |
 |---|---|
 | `port` | Server port (default: 8080) |
-| `auth_mode` | `mock` (dev) or `ntlm` (production) |
-| `mock_username` | Fixed username in mock mode |
-| `initial_admin` | Auto-created admin on first run |
-| `db_path` | JSON data file path |
+| `auth_mode` | `mock` (dev/test) or `ntlm` (IIS proxy) |
+| `mock_username` | Simulated username in mock mode, e.g. `admin` or `DOMAIN\user` |
+| `initial_admin` | Auto-created admin on first run, supports `DOMAIN\user` format |
+| `db_path` | JSON data path (relative to exe directory) |
 
-**Production**: Copy `config.prod.json` to `config.json`, set `auth_mode` to `ntlm`, and set `initial_admin` to your domain account.
+**Dev/Test (Mock mode):**
+```json
+{
+  "port": 8080,
+  "auth_mode": "mock",
+  "mock_username": "admin",
+  "initial_admin": "admin",
+  "db_path": "data/survey.json"
+}
+```
 
-**NTLM Mode**: Set `auth_mode` to `ntlm`, leave `mock_username` empty. Username is read from `X-Forwarded-User` or `X-Remote-User` header.
+**Production (NTLM + IIS):**
+```json
+{
+  "port": 8080,
+  "auth_mode": "ntlm",
+  "mock_username": "",
+  "initial_admin": "DOMAIN\\your_account",
+  "db_path": "data/survey.json"
+}
+```
+
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Admin page stuck on "Loading...", buttons unresponsive | NTLM auth failed, API returns 403 | Check IIS reverse proxy; use mock mode for dev |
+| Log shows `WARNING: 认证头缺失` | No `mock_username` and no NTLM proxy | Set `mock_username` or configure IIS |
+| Data changes lost after reload | No write permission on `data/` directory | Grant write permission to `data/` |
+| `config.json` not found | Wrong deployment path | Ensure `config.json` is in same directory as `survey.exe` |
+| NSSM service fails to start | Wrong working directory | Set `AppDirectory` to exe path with NSSM |
 
 ### API Endpoints
 

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"survey/internal/handler"
 	"survey/internal/middleware"
@@ -15,6 +16,26 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 )
+
+// exeDir 可执行文件所在目录（所有相对路径基于此目录解析）
+var exeDir string
+
+func init() {
+	exe, err := os.Executable()
+	if err != nil {
+		exeDir = "."
+		return
+	}
+	exeDir = filepath.Dir(exe)
+	// go run 会把二进制编译到临时目录，此时回退到 CWD
+	if _, err := os.Stat(filepath.Join(exeDir, "config.json")); os.IsNotExist(err) {
+		if cwd, err := os.Getwd(); err == nil {
+			if _, err := os.Stat(filepath.Join(cwd, "config.json")); err == nil {
+				exeDir = cwd
+			}
+		}
+	}
+}
 
 // Config 应用配置
 type Config struct {
@@ -28,15 +49,20 @@ type Config struct {
 func loadConfig() Config {
 	cfg := Config{
 		Port:   8080,
-		DBPath: "data/survey.json",
+		DBPath: filepath.Join(exeDir, "data", "survey.json"),
 	}
-	data, err := os.ReadFile("config.json")
+	configPath := filepath.Join(exeDir, "config.json")
+	data, err := os.ReadFile(configPath)
 	if err != nil {
-		log.Printf("未找到 config.json, 使用默认配置")
+		log.Printf("未找到 %s, 使用默认配置", configPath)
 		return cfg
 	}
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		log.Printf("config.json 解析失败: %v", err)
+	}
+	// DBPath 若非绝对路径，相对于 exe 所在目录
+	if cfg.DBPath != "" && !filepath.IsAbs(cfg.DBPath) {
+		cfg.DBPath = filepath.Join(exeDir, cfg.DBPath)
 	}
 	return cfg
 }
@@ -45,10 +71,13 @@ func main() {
 	cfg := loadConfig()
 
 	// 日志同时输出到文件和 stdout
-	logFile, err := os.OpenFile("survey.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logPath := filepath.Join(exeDir, "survey.log")
+	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		log.SetOutput(io.MultiWriter(os.Stdout, logFile))
 		defer logFile.Close()
+	} else {
+		log.Printf("无法创建日志文件 %s: %v", logPath, err)
 	}
 
 	// 初始化数据库
@@ -73,7 +102,8 @@ func main() {
 	})
 
 	// 静态文件
-	fs := http.FileServer(http.Dir("web"))
+	webDir := filepath.Join(exeDir, "web")
+	fs := http.FileServer(http.Dir(webDir))
 	r.Handle("/static/*", http.StripPrefix("/static/", fs))
 
 	// API 路由
@@ -105,8 +135,9 @@ func main() {
 	})
 
 	// 前端 SPA 入口
+	indexPath := filepath.Join(exeDir, "web", "index.html")
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "web/index.html")
+		http.ServeFile(w, r, indexPath)
 	})
 
 	log.Printf("Survey 服务启动, 端口 %d", cfg.Port)

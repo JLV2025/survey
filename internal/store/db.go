@@ -56,7 +56,9 @@ func Init(dbPath string) {
 // Close 关闭数据库（JSON 存储无需特殊操作）
 func Close() {
 	if DB != nil {
-		DB.save()
+		if err := DB.save(); err != nil {
+			log.Printf("关闭时保存数据失败: %v", err)
+		}
 	}
 }
 
@@ -76,15 +78,12 @@ func (s *JSONFileStore) load() {
 	}
 }
 
-func (s *JSONFileStore) save() {
+func (s *JSONFileStore) save() error {
 	data, err := json.MarshalIndent(s.Data, "", "  ")
 	if err != nil {
-		log.Printf("序列化数据失败: %v", err)
-		return
+		return err
 	}
-	if err := os.WriteFile(s.DBPath, data, 0644); err != nil {
-		log.Printf("写入数据文件失败: %v", err)
-	}
+	return os.WriteFile(s.DBPath, data, 0644)
 }
 
 // write 加写锁执行操作
@@ -94,11 +93,14 @@ func write(fn func() error) error {
 	}
 	DB.mu.Lock()
 	defer DB.mu.Unlock()
-	err := fn()
-	if err == nil {
-		DB.save()
+	if err := fn(); err != nil {
+		return err
 	}
-	return err
+	if err := DB.save(); err != nil {
+		log.Printf("写入数据文件失败: %v", err)
+		return err
+	}
+	return nil
 }
 
 // read 加读锁执行操作
@@ -128,7 +130,9 @@ func SeedAdmin(username string) {
 		ID:       uuid.New().String(),
 		Username: username,
 	})
-	DB.save()
+	if err := DB.save(); err != nil {
+		log.Printf("初始化管理员失败: %v", err)
+	}
 }
 
 // IsAdmin 检查是否为管理员

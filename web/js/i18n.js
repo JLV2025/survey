@@ -68,6 +68,12 @@ const I18N = {
     empty_title: '请输入问卷标题',
     question_empty: '请输入题目内容',
     audit_log: '操作日志',
+    save_failed: '保存失败，请检查权限或网络连接',
+    delete_failed: '删除失败，请检查权限或网络连接',
+    add_admin_failed: '添加管理员失败，请检查权限',
+    remove_admin_failed: '删除管理员失败，请检查权限',
+    operation_failed: '操作失败，请检查权限',
+    error_permission: '无管理员权限，请检查 NTLM 认证配置',
   },
   en: {
     app_name: 'Internal Survey',
@@ -138,6 +144,12 @@ const I18N = {
     empty_title: 'Please enter a survey title',
     question_empty: 'Please enter the question',
     audit_log: 'Audit Log',
+    save_failed: 'Save failed, check permissions or network',
+    delete_failed: 'Delete failed, check permissions or network',
+    add_admin_failed: 'Add admin failed, check permissions',
+    remove_admin_failed: 'Remove admin failed, check permissions',
+    operation_failed: 'Operation failed, check permissions',
+    error_permission: 'No admin permission, check NTLM auth config',
   }
 };
 

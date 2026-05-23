@@ -117,14 +117,14 @@ func ExportExcel(w http.ResponseWriter, r *http.Request) {
 		row++
 
 		if q.Type == "single" || q.Type == "multiple" {
-		counts := store.CountOptions(q, submissions)
-		for _, o := range q.Options {
-		cell, _ = excelize.CoordinatesToCellName(1, row)
-		f.SetCellValue("统计汇总", cell, o.Content)
-		cell, _ = excelize.CoordinatesToCellName(2, row)
-		f.SetCellValue("统计汇总", cell, counts[o.Content])
-		row++
-		}
+			counts := store.CountOptions(q, submissions)
+			for _, o := range q.Options {
+				cell, _ = excelize.CoordinatesToCellName(1, row)
+				f.SetCellValue("统计汇总", cell, o.Content)
+				cell, _ = excelize.CoordinatesToCellName(2, row)
+				f.SetCellValue("统计汇总", cell, counts[o.Content])
+				row++
+			}
 		} else {
 			for _, sub := range submissions {
 				for _, a := range sub.Answers {
