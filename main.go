@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -43,6 +44,13 @@ func loadConfig() Config {
 func main() {
 	cfg := loadConfig()
 
+	// 日志同时输出到文件和 stdout
+	logFile, err := os.OpenFile("survey.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err == nil {
+		log.SetOutput(io.MultiWriter(os.Stdout, logFile))
+		defer logFile.Close()
+	}
+
 	// 初始化数据库
 	store.Init(cfg.DBPath)
 	defer store.Close()
@@ -57,6 +65,12 @@ func main() {
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(middleware.AuthMiddleware(cfg.MockUsername))
+
+	// 健康检查
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
 
 	// 静态文件
 	fs := http.FileServer(http.Dir("web"))

@@ -25,7 +25,7 @@ A lightweight enterprise survey system with Go backend and Vue 3 frontend. Singl
 | 层 | 技术 |
 |---|---|
 | 后端 | Go 1.24 + chi/v5 |
-| 前端 | Vue 3 (CDN) + ECharts 5 |
+| 前端 | Vue 3 + ECharts 5（本地化，零 CDN 依赖） |
 | 存储 | JSON 文件存储 |
 | 导出 | excelize/v2 |
 | 部署 | 单一 exe，无外部依赖 |
@@ -34,8 +34,10 @@ A lightweight enterprise survey system with Go backend and Vue 3 frontend. Singl
 
 **前置条件**：Go 1.21+
 
+> 中国用户需先设置 Go 代理：`go env -w GOPROXY=https://goproxy.cn,direct`
+
 ```bash
-git clone <repo-url>
+git clone https://github.com/JLV2025/survey.git
 cd survey
 go build -o survey.exe .
 ./survey.exe
@@ -68,12 +70,15 @@ nssm start SurveyService
 survey/
 ├── survey.exe
 ├── config.json
-├── web/              # 前端静态文件（必须）
+├── config.prod.json       # 生产环境配置模板
+├── survey.log             # 运行日志（自动生成）
+├── web/                   # 前端静态文件（必须）
 │   ├── index.html
 │   ├── css/
 │   ├── js/
+│   │   └── vendor/        # 本地化 JS 库
 │   └── logo.gif
-└── data/             # 数据目录（自动创建）
+└── data/                  # 数据目录（自动创建）
 ```
 
 #### 防火墙配置
@@ -94,7 +99,23 @@ New-NetFirewallRule -DisplayName "Survey System" -Direction Inbound -Port 8080 -
 | `initial_admin` | 首次启动时自动创建的管理员用户名 |
 | `db_path` | JSON 数据文件路径 |
 
+**生产环境**：复制 `config.prod.json` 为 `config.json`，将 `auth_mode` 改为 `ntlm`，填写 `initial_admin` 为域账号。
+
 **NTLM 模式**：将 `auth_mode` 设为 `ntlm`，`mock_username` 留空。系统将从 `X-Forwarded-User` 或 `X-Remote-User` HTTP Header 读取用户名（由前置 NTLM 代理注入）。
+
+### API 端点
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/health` | 健康检查 |
+| GET | `/api/me` | 当前用户信息 |
+| GET | `/api/surveys/{id}` | 获取问卷 |
+| POST | `/api/surveys/{id}/submit` | 提交问卷 |
+| GET | `/api/surveys/{id}/stats` | 统计结果 |
+| GET | `/api/admin/surveys` | 管理员：问卷列表 |
+| GET | `/api/admin/surveys/{id}/export` | 导出 Excel |
+
+日志文件 `survey.log` 在运行目录自动生成，同时输出到 stdout。
 
 ### 使用指南
 
@@ -121,9 +142,14 @@ New-NetFirewallRule -DisplayName "Survey System" -Direction Inbound -Port 8080 -
 ```
 survey/
 ├── main.go                    # 入口
-├── config.json                # 配置文件
+├── config.json                # 开发配置
+├── config.prod.json           # 生产配置模板
 ├── internal/
 │   ├── handler/               # HTTP 处理器
+│   │   ├── admin.go           # 管理 + 问卷 + 统计
+│   │   ├── question.go        # 题目 CRUD
+│   │   ├── export.go          # Excel 导出
+│   │   └── helpers.go         # 响应工具
 │   ├── middleware/auth.go     # 认证中间件
 │   ├── model/models.go        # 数据模型
 │   └── store/db.go            # JSON 文件存储
@@ -131,6 +157,7 @@ survey/
 │   ├── index.html             # SPA 入口
 │   ├── css/style.css          # 样式
 │   └── js/                    # Vue 组件 + API + i18n
+│       └── vendor/            # 本地化 JS 库
 └── data/                      # 运行时数据（自动创建）
 ```
 
@@ -155,7 +182,7 @@ survey/
 | Layer | Technology |
 |---|---|
 | Backend | Go 1.24 + chi/v5 |
-| Frontend | Vue 3 (CDN) + ECharts 5 |
+| Frontend | Vue 3 + ECharts 5 (local vendor, zero CDN dependency) |
 | Storage | JSON file |
 | Export | excelize/v2 |
 | Deployment | Single binary, zero dependencies |
@@ -164,8 +191,10 @@ survey/
 
 **Prerequisites**: Go 1.21+
 
+> Users in China must set Go proxy first: `go env -w GOPROXY=https://goproxy.cn,direct`
+
 ```bash
-git clone <repo-url>
+git clone https://github.com/JLV2025/survey.git
 cd survey
 go build -o survey.exe .
 ./survey.exe
@@ -208,7 +237,65 @@ New-NetFirewallRule -DisplayName "Survey System" -Direction Inbound -Port 8080 -
 | `initial_admin` | Auto-created admin on first run |
 | `db_path` | JSON data file path |
 
+**Production**: Copy `config.prod.json` to `config.json`, set `auth_mode` to `ntlm`, and set `initial_admin` to your domain account.
+
 **NTLM Mode**: Set `auth_mode` to `ntlm`, leave `mock_username` empty. Username is read from `X-Forwarded-User` or `X-Remote-User` header.
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Health check |
+| GET | `/api/me` | Current user info |
+| GET | `/api/surveys/{id}` | Get survey |
+| POST | `/api/surveys/{id}/submit` | Submit survey |
+| GET | `/api/surveys/{id}/stats` | Statistics |
+| GET | `/api/admin/surveys` | Admin: list surveys |
+| GET | `/api/admin/surveys/{id}/export` | Export Excel |
+
+### Usage Guide
+
+#### Admin Operations
+
+1. Open `http://<server>:8080`, auto-enters admin panel
+2. **Create Survey**: Click "New Survey", fill in title, description, choose anonymous mode
+3. **Design Survey**: Click "Design", drag question types from left panel to canvas, edit title and options
+4. **Publish Survey**: Click "Publish" in survey list
+5. **Share Link**: Click "Copy Link", send URL to respondents
+6. **View Statistics**: Click "Stats", view pie charts and summary data
+7. **Export Data**: Click "Export", download Excel file
+
+#### Respondent Operations
+
+1. Open survey link (e.g. `http://<server>:8080/#/fill/<surveyID>`)
+2. Fill in step-by-step wizard (one question per page)
+3. Drafts auto-saved in browser, restored on reopen
+4. Click "Submit" to complete (cannot modify after submission)
+5. Auto-redirect to statistics page after submission
+
+### Project Structure
+
+```
+survey/
+├── main.go                    # Entry point
+├── config.json                # Dev config
+├── config.prod.json           # Production config template
+├── internal/
+│   ├── handler/               # HTTP handlers
+│   │   ├── admin.go           # Admin + survey + stats
+│   │   ├── question.go        # Question CRUD
+│   │   ├── export.go          # Excel export
+│   │   └── helpers.go         # Response utilities
+│   ├── middleware/auth.go     # Auth middleware
+│   ├── model/models.go        # Data models
+│   └── store/db.go            # JSON file storage
+├── web/                       # Frontend
+│   ├── index.html             # SPA entry
+│   ├── css/style.css          # Styles
+│   └── js/                    # Vue components + API + i18n
+│       └── vendor/            # Local JS libraries
+└── data/                      # Runtime data (auto-created)
+```
 
 ### License
 

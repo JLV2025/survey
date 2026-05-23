@@ -1,0 +1,6 @@
+{
+  "port": 8080,
+  "auth_mode": "ntlm",
+  "initial_admin": "your_domain_admin",
+  "db_path": "data/survey.json"
+}

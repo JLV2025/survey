@@ -49,7 +49,7 @@
 <table>
   <tr><th>层</th><th>技术</th></tr>
   <tr><td>后端</td><td>Go 1.24 + chi/v5</td></tr>
-  <tr><td>前端</td><td>Vue 3 (CDN) + ECharts 5</td></tr>
+  <tr><td>前端</td><td>Vue 3 + ECharts 5（本地化，零 CDN 依赖）</td></tr>
   <tr><td>存储</td><td>JSON 文件存储</td></tr>
   <tr><td>导出</td><td>excelize/v2</td></tr>
   <tr><td>部署</td><td>单一 exe，无外部依赖</td></tr>
@@ -57,6 +57,7 @@
 
 <h3>快速开始</h3>
 <p><strong>前置条件</strong>：Go 1.21+</p>
+<p>中国用户需先设置 Go 代理：<code>go env -w GOPROXY=https://goproxy.cn,direct</code></p>
 <pre><code>git clone https://github.com/JLV2025/survey.git
 cd survey
 go build -o survey.exe .
@@ -79,12 +80,15 @@ nssm start SurveyService</code></pre>
 <pre><code>survey/
 ├── survey.exe
 ├── config.json
-├── web/              # 前端静态文件（必须）
+├── config.prod.json       # 生产环境配置模板
+├── survey.log             # 运行日志（自动生成）
+├── web/                   # 前端静态文件（必须）
 │   ├── index.html
 │   ├── css/
 │   ├── js/
+│   │   └── vendor/        # 本地化 JS 库
 │   └── logo.gif
-└── data/             # 数据目录（自动创建）</code></pre>
+└── data/                  # 数据目录（自动创建）</code></pre>
 
 <h4>防火墙配置</h4>
 <pre><code>New-NetFirewallRule -DisplayName "Survey System" -Direction Inbound -Port 8080 -Protocol TCP -Action Allow</code></pre>
@@ -99,7 +103,21 @@ nssm start SurveyService</code></pre>
   <tr><td><code>initial_admin</code></td><td>首次启动时自动创建的管理员用户名</td></tr>
   <tr><td><code>db_path</code></td><td>JSON 数据文件路径</td></tr>
 </table>
+<p><strong>生产环境</strong>：复制 <code>config.prod.json</code> 为 <code>config.json</code>，将 <code>auth_mode</code> 改为 <code>ntlm</code>，填写 <code>initial_admin</code> 为域账号。</p>
 <p><strong>NTLM 模式</strong>：将 <code>auth_mode</code> 设为 <code>ntlm</code>，<code>mock_username</code> 留空。系统将从 <code>X-Forwarded-User</code> 或 <code>X-Remote-User</code> HTTP Header 读取用户名（由前置 NTLM 代理注入）。</p>
+
+<h3>API 端点</h3>
+<table>
+  <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+  <tr><td>GET</td><td><code>/health</code></td><td>健康检查</td></tr>
+  <tr><td>GET</td><td><code>/api/me</code></td><td>当前用户信息</td></tr>
+  <tr><td>GET</td><td><code>/api/surveys/{id}</code></td><td>获取问卷</td></tr>
+  <tr><td>POST</td><td><code>/api/surveys/{id}/submit</code></td><td>提交问卷</td></tr>
+  <tr><td>GET</td><td><code>/api/surveys/{id}/stats</code></td><td>统计结果</td></tr>
+  <tr><td>GET</td><td><code>/api/admin/surveys</code></td><td>管理员：问卷列表</td></tr>
+  <tr><td>GET</td><td><code>/api/admin/surveys/{id}/export</code></td><td>导出 Excel</td></tr>
+</table>
+<p>日志文件 <code>survey.log</code> 在运行目录自动生成，同时输出到 stdout。</p>
 
 <h3>使用指南</h3>
 
@@ -159,7 +177,7 @@ nssm start SurveyService</code></pre>
 <table>
   <tr><th>Layer</th><th>Technology</th></tr>
   <tr><td>Backend</td><td>Go 1.24 + chi/v5</td></tr>
-  <tr><td>Frontend</td><td>Vue 3 (CDN) + ECharts 5</td></tr>
+  <tr><td>Frontend</td><td>Vue 3 + ECharts 5 (local vendor, zero CDN dependency)</td></tr>
   <tr><td>Storage</td><td>JSON file</td></tr>
   <tr><td>Export</td><td>excelize/v2</td></tr>
   <tr><td>Deployment</td><td>Single binary, zero dependencies</td></tr>
@@ -167,6 +185,7 @@ nssm start SurveyService</code></pre>
 
 <h3>Quick Start</h3>
 <p><strong>Prerequisites</strong>: Go 1.21+</p>
+<p>Users in China must set Go proxy first: <code>go env -w GOPROXY=https://goproxy.cn,direct</code></p>
 <pre><code>git clone https://github.com/JLV2025/survey.git
 cd survey
 go build -o survey.exe .
@@ -184,6 +203,20 @@ Start-Process -NoNewWindow .\survey.exe</code></pre>
 nssm set SurveyService AppDirectory "C:\apps\survey"
 nssm start SurveyService</code></pre>
 
+<h4>Directory Structure</h4>
+<pre><code>survey/
+├── survey.exe
+├── config.json
+├── config.prod.json       # Production config template
+├── survey.log             # Runtime log (auto-generated)
+├── web/                   # Frontend static files (required)
+│   ├── index.html
+│   ├── css/
+│   ├── js/
+│   │   └── vendor/        # Local JS libraries
+│   └── logo.gif
+└── data/                  # Data directory (auto-created)</code></pre>
+
 <h4>Firewall</h4>
 <pre><code>New-NetFirewallRule -DisplayName "Survey System" -Direction Inbound -Port 8080 -Protocol TCP -Action Allow</code></pre>
 
@@ -197,7 +230,63 @@ nssm start SurveyService</code></pre>
   <tr><td><code>initial_admin</code></td><td>Auto-created admin on first run</td></tr>
   <tr><td><code>db_path</code></td><td>JSON data file path</td></tr>
 </table>
+<p><strong>Production</strong>: Copy <code>config.prod.json</code> to <code>config.json</code>, set <code>auth_mode</code> to <code>ntlm</code>, and set <code>initial_admin</code> to your domain account.</p>
 <p><strong>NTLM Mode</strong>: Set <code>auth_mode</code> to <code>ntlm</code>, leave <code>mock_username</code> empty. Username is read from <code>X-Forwarded-User</code> or <code>X-Remote-User</code> header.</p>
+
+<h3>API Endpoints</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+  <tr><td>GET</td><td><code>/health</code></td><td>Health check</td></tr>
+  <tr><td>GET</td><td><code>/api/me</code></td><td>Current user info</td></tr>
+  <tr><td>GET</td><td><code>/api/surveys/{id}</code></td><td>Get survey</td></tr>
+  <tr><td>POST</td><td><code>/api/surveys/{id}/submit</code></td><td>Submit survey</td></tr>
+  <tr><td>GET</td><td><code>/api/surveys/{id}/stats</code></td><td>Statistics</td></tr>
+  <tr><td>GET</td><td><code>/api/admin/surveys</code></td><td>Admin: list surveys</td></tr>
+  <tr><td>GET</td><td><code>/api/admin/surveys/{id}/export</code></td><td>Export Excel</td></tr>
+</table>
+
+<h3>Usage Guide</h3>
+
+<h4>Admin Operations</h4>
+<ol>
+  <li>Open <code>http://&lt;server&gt;:8080</code>, auto-enters admin panel</li>
+  <li><strong>Create Survey</strong>: Click "New Survey", fill in title, description, choose anonymous mode</li>
+  <li><strong>Design Survey</strong>: Click "Design", drag question types from left panel to canvas, edit title and options</li>
+  <li><strong>Publish Survey</strong>: Click "Publish" in survey list</li>
+  <li><strong>Share Link</strong>: Click "Copy Link", send URL to respondents</li>
+  <li><strong>View Statistics</strong>: Click "Stats", view pie charts and summary data</li>
+  <li><strong>Export Data</strong>: Click "Export", download Excel file</li>
+</ol>
+
+<h4>Respondent Operations</h4>
+<ol>
+  <li>Open survey link (e.g. <code>http://&lt;server&gt;:8080/#/fill/&lt;surveyID&gt;</code>)</li>
+  <li>Fill in step-by-step wizard (one question per page)</li>
+  <li>Drafts auto-saved in browser, restored on reopen</li>
+  <li>Click "Submit" to complete (cannot modify after submission)</li>
+  <li>Auto-redirect to statistics page after submission</li>
+</ol>
+
+<h3>Project Structure</h3>
+<pre><code>survey/
+├── main.go                    # Entry point
+├── config.json                # Dev config
+├── config.prod.json           # Production config template
+├── internal/
+│   ├── handler/               # HTTP handlers
+│   │   ├── admin.go           # Admin + survey + stats
+│   │   ├── question.go        # Question CRUD
+│   │   ├── export.go          # Excel export
+│   │   └── helpers.go         # Response utilities
+│   ├── middleware/auth.go     # Auth middleware
+│   ├── model/models.go        # Data models
+│   └── store/db.go            # JSON file storage
+├── web/                       # Frontend
+│   ├── index.html             # SPA entry
+│   ├── css/style.css          # Styles
+│   └── js/                    # Vue components + API + i18n
+│       └── vendor/            # Local JS libraries
+└── data/                      # Runtime data (auto-created)</code></pre>
 
 <h3>License</h3>
 <p>MIT</p>

@@ -33,6 +33,9 @@ Desktop.ini
 # Playwright
 .playwright-mcp/
 
+# 旧版本清理暂存
+_old_cleanup/
+
 # 根目录多余文件（web/ 下已有）
 /logo.gif
 /Logo2.gif

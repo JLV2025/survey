@@ -9,6 +9,7 @@ window.__surveyFill = {
       currentStep: 0,
       answers: {},
       submitted: false,
+      submitting: false,
       error: '',
       loading: true,
     };
@@ -67,6 +68,8 @@ window.__surveyFill = {
     prevStep() { if (!this.isFirstStep) this.currentStep--; },
     async handleSubmit() {
       if (!confirm(this.t('submit_confirm'))) return;
+      if (this.submitting) return;
+      this.submitting = true;
       const ans = [];
       for (const q of this.questions) {
         if (this.answers[q.id]) {
@@ -78,7 +81,6 @@ window.__surveyFill = {
         if (res.ok) {
           this.submitted = true;
           this.clearDraft();
-          // 跳转统计页
           this.$emit('navigate', 'stats/' + this.routeParams.id);
         } else {
           this.error = res.message || this.t('server_error');
@@ -86,6 +88,7 @@ window.__surveyFill = {
       } catch (e) {
         this.error = this.t('server_error');
       }
+      this.submitting = false;
     },
   },
   async mounted() {
@@ -199,8 +202,8 @@ window.__surveyFill = {
         <button v-if="!isLastStep" class="btn" @click="nextStep">
           {{ t('next') }}
         </button>
-        <button v-else class="btn" @click="handleSubmit" :disabled="!canSubmit">
-          {{ t('submit') }}
+        <button v-else class="btn" @click="handleSubmit" :disabled="!canSubmit || submitting">
+          {{ submitting ? '...' : t('submit') }}
         </button>
       </div>
     </div>
