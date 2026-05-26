@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"survey/internal/handler"
 	"survey/internal/middleware"
@@ -84,9 +85,13 @@ func main() {
 	store.Init(cfg.DBPath)
 	defer store.Close()
 
-	// 初始化首个管理员
+	// 初始化管理员（逗号分隔多个）
 	if cfg.InitialAdmin != "" {
-		store.SeedAdmin(cfg.InitialAdmin)
+		for _, u := range strings.Split(cfg.InitialAdmin, ",") {
+			if u = strings.TrimSpace(u); u != "" {
+				store.SeedAdmin(u)
+			}
+		}
 	}
 
 	// 路由

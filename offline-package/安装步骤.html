@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>内部调查系统 - 离线安装指南</title>
+<style>
+  :root {
+    --bg: #f5f5f5;
+    --card: #fff;
+    --text: #333;
+    --muted: #666;
+    --border: #e0e0e0;
+    --accent: #1a73e8;
+    --warn: #e37400;
+    --danger: #d93025;
+    --code-bg: #f0f4f8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 40px 20px;
+  }
+  .container { max-width: 860px; margin: 0 auto; }
+  h1 {
+    font-size: 28px;
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 12px;
+    margin-bottom: 24px;
+  }
+  h2 {
+    font-size: 20px;
+    margin: 32px 0 12px;
+    color: var(--accent);
+  }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  p { margin-bottom: 10px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+  }
+  .card.warn {
+    border-left: 4px solid var(--warn);
+  }
+  .card.info {
+    border-left: 4px solid var(--accent);
+  }
+  ol, ul { padding-left: 22px; margin-bottom: 12px; }
+  li { margin-bottom: 6px; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
+    font-size: 13px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 18px;
+    overflow-x: auto;
+    margin-bottom: 14px;
+    font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .tag-red { background: #fce8e6; color: var(--danger); }
+  .tag-orange { background: #fef7e0; color: var(--warn); }
+  .tag-blue { background: #e8f0fe; color: var(--accent); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 14px;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    text-align: left;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    margin-right: 8px;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 28px 0;
+  }
+  .footer { color: var(--muted); font-size: 13px; margin-top: 32px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>内部调查系统 · 离线安装指南</h1>
+
+<p>适用：Windows Server 2022（离线环境） | 包大小：~13MB</p>
+
+<hr>
+
+<!-- ============ 准备 ============ -->
+<h2><span class="step-num">1</span> 准备工作</h2>
+
+<div class="card info">
+  <h3>包内容确认</h3>
+  <p>确保安装包目录包含以下文件：</p>
+  <pre>offline-package/
+├── survey.exe          ← Go 后端 (纯静态, 无依赖)
+├── config.json         ← 生产配置
+├── install.bat         ← 一键安装脚本
+├── setup-iis.ps1       ← IIS 反向代理脚本 (可选)
+├── 安装步骤.html        ← 本文件
+└── web/                ← 前端静态文件
+    ├── index.html
+    ├── logo.gif
+    ├── css/
+    └── js/</pre>
+</div>
+
+<div class="card warn">
+  <h3>⚠ 安装前确认</h3>
+  <ul>
+    <li>以 <strong>管理员</strong> 身份运行所有脚本和命令</li>
+    <li>确保端口 <code>8080</code> 未被占用（或被防火墙阻止）</li>
+    <li>如需 NTLM 域认证，请提前准备 IIS 扩展安装包（见 <a href="#iis-ext">附录 A</a>）</li>
+    <li>如果想让其他机器访问本服务，确保 Windows 防火墙放行对应端口</li>
+  </ul>
+</div>
+
+<hr>
+
+<!-- ============ 快速安装 ============ -->
+<h2><span class="step-num">2</span> 快速安装（推荐）</h2>
+
+<div class="card">
+  <ol>
+    <li>将 <code>offline-package</code> 目录整个复制到服务器任意位置</li>
+    <li><strong>右键 → 以管理员身份运行</strong> <code>install.bat</code></li>
+    <li>提示 "是否注册为 Windows 服务" 时，输入 <code>y</code> 回车</li>
+  </ol>
+  <p>脚本自动完成：</p>
+  <ul>
+    <li>复制所有文件到 <code>C:\SurveyServer\</code></li>
+    <li>创建 <code>C:\SurveyServer\data\</code> 数据目录</li>
+    <li>注册并启动 Windows 服务 <code>SurveyServer</code></li>
+  </ul>
+</div>
+
+<hr>
+
+<!-- ============ 手动安装 ============ -->
+<h2><span class="step-num">3</span> 手动安装</h2>
+
+<h3>3.1 复制文件</h3>
+<div class="card">
+  <pre>mkdir C:\SurveyServer
+mkdir C:\SurveyServer\data
+xcopy /E /I web C:\SurveyServer\web
+copy survey.exe C:\SurveyServer\
+copy config.json C:\SurveyServer\</pre>
+</div>
+
+<h3>3.2 注册 Windows 服务</h3>
+<div class="card">
+  <pre>sc create "SurveyServer" binPath= "C:\SurveyServer\survey.exe" start= auto
+sc description "SurveyServer" "内部调查系统"
+sc start "SurveyServer"</pre>
+  <p>验证服务状态：</p>
+  <pre>sc query "SurveyServer"</pre>
+</div>
+
+<h3>3.3 验证运行</h3>
+<div class="card">
+  <p>浏览器打开：</p>
+  <pre>http://localhost:8080</pre>
+  <p>看到问卷系统首页即表示安装成功。</p>
+  <p>如果无法访问，检查：</p>
+  <ul>
+    <li>服务是否启动 — <code>sc query SurveyServer</code></li>
+    <li>端口是否被防火墙阻止</li>
+  </ul>
+</div>
+
+<hr>
+
+<!-- ============ 配置说明 ============ -->
+<h2><span class="step-num">4</span> 配置说明</h2>
+
+<div class="card">
+  <h3>config.json 字段</h3>
+  <table>
+    <tr><th>字段</th><th>默认值</th><th>说明</th></tr>
+    <tr><td><code>port</code></td><td>8080</td><td>HTTP 监听端口</td></tr>
+    <tr><td><code>auth_mode</code></td><td><code>"ntlm"</code></td><td>认证模式: <code>"ntlm"</code> / <code>"mock"</code></td></tr>
+    <tr><td><code>mock_username</code></td><td><code>""</code></td><td>mock 模式下固定用户名</td></tr>
+    <tr><td><code>initial_admin</code></td><td><code>""</code></td><td>首次启动时设为管理员的用户名</td></tr>
+    <tr><td><code>db_path</code></td><td><code>"data/survey.json"</code></td><td>数据文件路径（相对 exe 所在目录）</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>认证模式说明</h3>
+
+  <p><span class="tag tag-blue">mock 模式</span> <strong>不需要 IIS</strong>，适用于演示或无域环境：</p>
+  <pre>{
+  "auth_mode": "mock",
+  "mock_username": "管理员",
+  "initial_admin": "管理员"
+}</pre>
+
+  <p><span class="tag tag-orange">ntlm 模式</span> <strong>需要 IIS 反向代理</strong>，适用于企业域环境：</p>
+  <pre>{
+  "auth_mode": "ntlm",
+  "mock_username": "",
+  "initial_admin": "DOMAIN\\your_account"
+}</pre>
+  <p>修改配置后需重启服务：</p>
+  <pre>sc stop "SurveyServer" && sc start "SurveyServer"</pre>
+</div>
+
+<hr>
+
+<!-- ============ IIS ============ -->
+<h2><span class="step-num">5</span> IIS 反向代理（NTLM 认证必需）</h2>
+
+<div class="card warn">
+  <p><strong>仅 <code>auth_mode: "ntlm"</code> 时需要此步骤。</strong> mock 模式可跳过。</p>
+</div>
+
+<h3>5.1 安装 IIS 组件（离线可用）</h3>
+<div class="card">
+  <p>以管理员身份运行 PowerShell，IIS 组件从系统 WinSxS 安装，不需联网：</p>
+  <pre>Install-WindowsFeature -Name Web-Server, Web-Windows-Auth, Web-Mgmt-Console</pre>
+</div>
+
+<h3 id="iis-ext">5.2 安装 IIS 扩展（需提前下载）</h3>
+<div class="card warn">
+  <p>这两个模块<strong>不在 Windows 系统内</strong>，需在有网机器提前下载：</p>
+  <table>
+    <tr><th>模块</th><th>下载地址</th><th>安装</th></tr>
+    <tr>
+      <td>URL Rewrite 2.1</td>
+      <td><a href="https://www.iis.net/downloads/microsoft/url-rewrite" target="_blank">iis.net/downloads/microsoft/url-rewrite</a></td>
+      <td>双击 .msi 安装</td>
+    </tr>
+    <tr>
+      <td>ARR 3.0</td>
+      <td><a href="https://www.iis.net/downloads/microsoft/application-request-routing" target="_blank">iis.net/downloads/microsoft/application-request-routing</a></td>
+      <td>双击 .msi 安装</td>
+    </tr>
+  </table>
+</div>
+
+<h3>5.3 运行 IIS 配置脚本</h3>
+<div class="card">
+  <pre>Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+C:\SurveyServer\setup-iis.ps1</pre>
+  <p>脚本自动完成：</p>
+  <ul>
+    <li>创建 IIS 站点 <code>SurveyProxy</code> 监听 80 端口</li>
+    <li>配置 Windows 认证（禁用匿名）</li>
+    <li>设置反向代理规则到 <code>http://localhost:8080</code></li>
+    <li>转发用户身份头 <code>X-Forwarded-User</code></li>
+  </ul>
+</div>
+
+<hr>
+
+<!-- ============ 防火墙 ============ -->
+<h2><span class="step-num">6</span> 防火墙配置</h2>
+
+<div class="card">
+  <p>允许外部机器访问，放行端口：</p>
+  <pre># 直连模式（访问 8080）
+netsh advfirewall firewall add rule name="Survey 8080" dir=in action=allow protocol=tcp localport=8080
+
+# IIS 代理模式（访问 80）
+netsh advfirewall firewall add rule name="Survey IIS 80" dir=in action=allow protocol=tcp localport=80</pre>
+</div>
+
+<hr>
+
+<!-- ============ 服务管理 ============ -->
+<h2><span class="step-num">7</span> 日常管理命令</h2>
+
+<div class="card">
+  <table>
+    <tr><th>操作</th><th>命令</th></tr>
+    <tr><td>启动服务</td><td><code>sc start "SurveyServer"</code></td></tr>
+    <tr><td>停止服务</td><td><code>sc stop "SurveyServer"</code></td></tr>
+    <tr><td>重启服务</td><td><code>sc stop "SurveyServer" &amp;&amp; sc start "SurveyServer"</code></td></tr>
+    <tr><td>查看状态</td><td><code>sc query "SurveyServer"</code></td></tr>
+    <tr><td>删除服务</td><td><code>sc delete "SurveyServer"</code></td></tr>
+    <tr><td>查看日志</td><td><code>notepad C:\SurveyServer\survey.log</code></td></tr>
+    <tr><td>备份数据</td><td><code>copy C:\SurveyServer\data\survey.json D:\backup\</code></td></tr>
+  </table>
+</div>
+
+<hr>
+
+<!-- ============ 常见问题 ============ -->
+<h2><span class="step-num">8</span> 常见问题</h2>
+
+<div class="card">
+  <h3>Q: 服务启动后立即停止</h3>
+  <p>查看日志 <code>C:\SurveyServer\survey.log</code>。通常是端口被占用或 <code>config.json</code> 格式错误。</p>
+
+  <h3>Q: 浏览器访问被拒</h3>
+  <p>检查 Windows 防火墙是否放行了端口。参见 <a href="#防火墙配置">第 6 步</a>。</p>
+
+  <h3>Q: NTLM 认证不工作</h3>
+  <ul>
+    <li>确认 IIS 扩展（URL Rewrite + ARR）已安装</li>
+    <li>确认 <code>setup-iis.ps1</code> 已运行</li>
+    <li>浏览器访问必须用 <code>http://服务器名</code>（不能用 IP 或用 localhost），否则 Windows 认证不会触发</li>
+    <li>IE/Edge 默认启用集成认证；Chrome 需检查设置</li>
+  </ul>
+
+  <h3>Q: 如何修改端口</h3>
+  <p>编辑 <code>C:\SurveyServer\config.json</code> 中的 <code>port</code> 字段，重启服务。</p>
+
+  <h3>Q: 如何升级</h3>
+  <ol>
+    <li><code>sc stop "SurveyServer"</code></li>
+    <li>替换 <code>C:\SurveyServer\survey.exe</code> 和 <code>C:\SurveyServer\web\</code></li>
+    <li><code>sc start "SurveyServer"</code></li>
+  </ol>
+</div>
+
+<hr>
+
+<div class="footer">
+  <p>内部调查系统 v1.0 | 离线部署包 | 生成日期: 2026-05-25</p>
+</div>
+
+</div>
+</body>
+</html>

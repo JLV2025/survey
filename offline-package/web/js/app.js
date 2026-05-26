@@ -92,16 +92,20 @@ const app = Vue.createApp({
 
   async mounted() {
     document.documentElement.lang = this.lang === 'zh' ? 'zh-CN' : 'en';
-    try {
-      const r = await fetchMe();
-      if (r.ok) this.currentUser = r.data;
-      else this.currentUser = { username: '', is_admin: false };
-    } catch (e) {
+    if (this.isAdminRoute()) {
+      try {
+        const r = await fetchMe();
+        if (r.ok) this.currentUser = r.data;
+        else this.currentUser = { username: '', is_admin: false };
+      } catch (e) {
+        this.currentUser = { username: '', is_admin: false };
+      }
+    } else {
       this.currentUser = { username: '', is_admin: false };
     }
     this.parseHash();
     window.addEventListener('hashchange', () => {
-      if (!this.currentUser || !this.currentUser.username) {
+      if (this.isAdminRoute() && (!this.currentUser || !this.currentUser.username)) {
         fetchMe().then(r => { if (r.ok) this.currentUser = r.data; }).catch(() => {});
       }
       this.parseHash();

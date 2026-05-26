@@ -2,7 +2,8 @@ package middleware
 
 import (
 	"context"
-	"log"
+	"encoding/base64"
+	"encoding/binary"
 	"net/http"
 	"strings"
 )
@@ -11,24 +12,28 @@ type contextKey string
 
 const UsernameKey contextKey = "username"
 
-// AuthMiddleware 身份验证中间件
-// mock 模式：从配置的固定用户名获取身份
-// ntlm 模式：从 HTTP Header 获取域账号（由前置 NTLM 代理注入）
 func AuthMiddleware(mockUsername string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			username := mockUsername
-			if username == "" {
-				// 尝试从 X-Forwarded-User 或 Authorization header 获取
-				username = r.Header.Get("X-Forwarded-User")
-				if username == "" {
-					username = r.Header.Get("X-Remote-User")
-				}
-				if username == "" {
-					log.Printf("WARNING: 认证头缺失 — 请在 NTLM 代理（如 IIS）后方部署, 或设置 mock_username 用于测试")
-				}
+			username := resolveUsername(mockUsername, r)
+
+			// NTLM Type 1 received — send challenge (Type 2)
+			if username == "" && isNTLMType1(r) {
+				w.Header().Set("WWW-Authenticate", NTLMChallengeHeader())
+				w.WriteHeader(http.StatusUnauthorized)
+				return
 			}
-			// 标准化：去掉 DOMAIN\ 前缀，只保留用户名部分
+
+			// No auth on privileged routes — initiate NTLM
+			if username == "" && isPrivilegedRoute(r.URL.Path) {
+				if mockUsername == "" {
+					w.Header().Set("WWW-Authenticate", "NTLM")
+				}
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			// Normalize domain\user prefix
 			if idx := strings.LastIndex(username, "\\"); idx >= 0 {
 				username = username[idx+1:]
 			}
@@ -38,7 +43,42 @@ func AuthMiddleware(mockUsername string) func(http.Handler) http.Handler {
 	}
 }
 
-// GetUsername 从 context 中提取用户名
+// resolveUsername extracts username from mock config, forwarded headers, or NTLM auth.
+func resolveUsername(mockUsername string, r *http.Request) string {
+	if mockUsername != "" {
+		return mockUsername
+	}
+	if u := r.Header.Get("X-Forwarded-User"); u != "" {
+		return u
+	}
+	if u := r.Header.Get("X-Remote-User"); u != "" {
+		return u
+	}
+	// Try NTLM Type 3 message
+	auth := r.Header.Get("Authorization")
+	username, _ := NTLMAuthUsername(auth)
+	return username
+}
+
+// isNTLMType1 returns true if the request contains an NTLM Type 1 (Negotiate) message.
+func isNTLMType1(r *http.Request) bool {
+	auth := r.Header.Get("Authorization")
+	data := NTLMAuthHeader(auth)
+	if data == "" {
+		return false
+	}
+	raw, err := base64.StdEncoding.DecodeString(data)
+	if err != nil || len(raw) < 12 || string(raw[:8]) != string(ntlmSignature) {
+		return false
+	}
+	return binary.LittleEndian.Uint32(raw[8:12]) == ntlmNegotiate
+}
+
+// isPrivilegedRoute returns true for routes that require authentication.
+func isPrivilegedRoute(path string) bool {
+	return strings.HasPrefix(path, "/api/admin/") || path == "/api/me"
+}
+
 func GetUsername(r *http.Request) string {
 	if v, ok := r.Context().Value(UsernameKey).(string); ok {
 		return v
@@ -46,7 +86,6 @@ func GetUsername(r *http.Request) string {
 	return ""
 }
 
-// NormalizeUsername 标准化用户名：去掉 DOMAIN\ 前缀
 func NormalizeUsername(username string) string {
 	if idx := strings.LastIndex(username, "\\"); idx >= 0 {
 		return username[idx+1:]
