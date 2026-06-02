@@ -8,13 +8,13 @@ echo ============================================
 echo.
 
 set "OUT_DIR=offline-package"
-set "PACKAGE_NAME=survey-offline"
 
 REM 清理旧输出
 if exist "%OUT_DIR%" rd /s /q "%OUT_DIR%"
 mkdir "%OUT_DIR%"
+mkdir "%OUT_DIR%\api"
 
-echo [1/4] 编译 Go 二进制...
+echo [1/5] 编译 Go 二进制...
 set CGO_ENABLED=0
 set GOOS=windows
 set GOARCH=amd64
@@ -25,17 +25,28 @@ if %ERRORLEVEL% neq 0 (
 )
 echo        survey.exe 编译完成
 
-echo [2/4] 复制 Web 静态文件...
+echo [2/5] 复制 Web 静态文件...
 xcopy /E /I /Y "web" "%OUT_DIR%\web" >nul
 echo        web\ 复制完成
 
-echo [3/4] 复制配置和脚本...
+echo [3/5] 复制 ASP 端点 + web.config...
+copy /Y "offline-package\api\me.asp" "%OUT_DIR%\api\" >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo        me.asp 从模板创建
+    mkdir "%OUT_DIR%\api" 2>nul
+    REM me.asp is source-controlled in offline-package/api/
+)
+copy /Y "offline-package\web.config" "%OUT_DIR%" >nul
+echo        api\me.asp
+echo        web.config
+
+echo [4/5] 复制配置和脚本...
 copy /Y "config.prod.json" "%OUT_DIR%\config.json" >nul
-copy /Y "setup-iis.ps1" "%OUT_DIR%" >nul
+copy /Y "offline-package\setup-iis.ps1" "%OUT_DIR%" >nul
 echo        config.json (from config.prod.json^)
 echo        setup-iis.ps1
 
-echo [4/4] 生成安装脚本 install.bat ...
+echo [5/5] 生成安装脚本 install.bat ...
 
 (
 echo @echo off
@@ -51,14 +62,15 @@ echo if not exist "C:\SurveyServer" mkdir "C:\SurveyServer"
 echo.
 echo echo 复制程序文件...
 echo xcopy /E /I /Y "%%~dp0web" "C:\SurveyServer\web" ^>nul
+echo xcopy /E /I /Y "%%~dp0api" "C:\SurveyServer\api" ^>nul
 echo copy /Y "%%~dp0survey.exe" "C:\SurveyServer\" ^>nul
 echo copy /Y "%%~dp0config.json" "C:\SurveyServer\" ^>nul
+echo copy /Y "%%~dp0web.config" "C:\SurveyServer\" ^>nul
 echo copy /Y "%%~dp0setup-iis.ps1" "C:\SurveyServer\" ^>nul
 echo.
 echo echo 创建数据目录...
 echo if not exist "C:\SurveyServer\data" mkdir "C:\SurveyServer\data"
 echo.
-echo REM 创建 Windows 服务（可选，需要 sc.exe）
 echo echo.
 echo echo 是否注册为 Windows 服务？(y/n^)
 echo set /p SVC_CHOICE=
@@ -80,11 +92,14 @@ echo echo   程序目录: C:\SurveyServer
 echo echo   日志文件: C:\SurveyServer\survey.log
 echo echo   数据文件: C:\SurveyServer\data\survey.json
 echo echo.
-echo echo   IIS 反向代理（可选，用于 NTLM 认证）:
+echo echo   IIS 反向代理设置（需要管理员权限）:
 echo echo     以管理员身份运行 PowerShell:
 echo echo       Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 echo echo       C:\SurveyServer\setup-iis.ps1
 echo echo   前提: 需安装 IIS URL Rewrite ^& ARR 模块
+echo echo.
+echo echo   架构: IIS Windows Auth + ASP ^(/api/me^) + Go 后端
+echo echo   域用户自动获取用户名，无登录弹窗。
 echo echo ============================================
 echo pause
 ) > "%OUT_DIR%\install.bat"

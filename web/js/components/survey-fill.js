@@ -94,12 +94,17 @@ window.__surveyFill = {
   async mounted() {
     try {
       // 检查是否已提交
-      const checkRes = await checkSubmitted(this.routeParams.id);
-      if (checkRes.ok && checkRes.data && checkRes.data.submitted) {
-        this.error = this.t('already_submitted');
-        this.loading = false;
-        return;
-      }
+      let alreadySubmitted = false;
+      try {
+        const checkRes = await checkSubmitted(this.routeParams.id);
+        if (checkRes.ok && checkRes.data && checkRes.data.submitted) {
+          alreadySubmitted = true;
+          this.error = this.t('already_submitted');
+          this.loading = false;
+          return;
+        }
+      } catch (e) { /* check 失败不阻塞，继续加载问卷 */ }
+      if (alreadySubmitted) return;
       const res = await fetchSurvey(this.routeParams.id);
       if (res.ok && res.data) {
         this.survey = res.data.survey;
@@ -108,7 +113,7 @@ window.__surveyFill = {
         this.error = res.message || this.t('survey_not_found');
       }
     } catch (e) {
-      this.error = this.t('survey_not_found');
+      this.error = this.t('server_error');
     }
     this.loading = false;
     this.loadDraft();
@@ -128,6 +133,12 @@ window.__surveyFill = {
     <div v-else>
       <h2 style="font-size:var(--fs-title);margin-bottom:8px">{{ survey.title }}</h2>
       <p style="color:var(--color-muted);margin-bottom:32px" v-if="survey.description">{{ survey.description }}</p>
+
+      <!-- 空题目提示 -->
+      <div v-if="!questions.length" class="card text-center" style="padding:48px 24px">
+        <div style="font-size:var(--fs-xl);margin-bottom:8px">📋</div>
+        <p style="color:var(--color-muted)">{{ t('no_questions') }}</p>
+      </div>
 
       <!-- 步骤指示 -->
       <div class="step-indicator" v-if="questions.length > 1">

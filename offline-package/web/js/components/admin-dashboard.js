@@ -23,6 +23,8 @@ window.__adminDashboard = {
     goSubmissions(id) { this.$emit('navigate', 'admin/submissions/' + id); },
     goResults(id) { this.$emit('navigate', 'admin/results/' + id); },
     goCreate() { this.$emit('navigate', 'admin/surveys'); },
+    goFill(id) { this.$emit('navigate', 'fill/' + id); },
+    goAdminUsers() { this.$emit('navigate', 'admin/surveys'); },
     async toggleStatus(survey) {
       const newStatus = survey.status === 'published' ? 'closed' : 'published';
       try {
@@ -53,7 +55,10 @@ window.__adminDashboard = {
   <div>
     <div class="flex-between mb-4">
       <h2 style="font-size:var(--fs-title)">{{ t('all_surveys') }}</h2>
-      <button class="btn" @click="goCreate">{{ t('create') }}</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm btn-outline" @click="goAdminUsers">{{ t('admin_users') }}</button>
+        <button class="btn" @click="goCreate">{{ t('create') }}</button>
+      </div>
     </div>
 
     <div v-if="loading" class="text-center mt-6">{{ t('loading') }}</div>
@@ -71,6 +76,7 @@ window.__adminDashboard = {
             <span v-if="s.is_anonymous" class="badge badge-draft" style="margin-left:6px">{{ t('anonymous_badge') }}</span>
           </div>
           <div style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-outline" @click="goFill(s.id)">{{ t('fill') }}</button>
             <button class="btn btn-sm btn-outline" @click="copyURL(s)">{{ t('copy_link') }}</button>
             <button class="btn btn-sm btn-outline" @click="goDesign(s.id)">{{ t('design') }}</button>
             <button class="btn btn-sm btn-outline" @click="goResults(s.id)">{{ t('results') }}</button>

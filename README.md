@@ -1,451 +1,226 @@
 # 内部调查系统 / Internal Survey System
 
-轻量级企业调查系统，Go 后端 + Vue 3 前端，单一 exe 部署，零外部依赖。
+轻量级企业调查系统，Classic ASP 后端 + Vue 3 前端，IIS 原生 Windows 认证，零编译部署。
 
-A lightweight enterprise survey system with Go backend and Vue 3 frontend. Single binary deployment, zero external dependencies.
+A lightweight enterprise survey system with Classic ASP backend and Vue 3 frontend. IIS Native Windows Auth, zero-compile deployment.
 
 ---
 
-## 中文文档
-
-### 功能特性
+## 功能特性 / Features
 
 - **问卷设计器**：拖拽式创建题目，支持单选、多选、填空题（单行/多行）
 - **分步填写**：受访者以分步向导模式填写，每页一道题
-- **身份识别**：支持 Windows NTLM 域认证；开发环境使用 Mock 模式
+- **域认证**：IIS Windows Authentication，域用户自动识别，无登录弹窗
 - **防重复提交**：基于用户名的提交锁定，已提交者不可重复填写
 - **匿名调查**：匿名模式下不显示提交者信息，导出不含用户名列
 - **实时统计**：ECharts 饼图 + 表格展示，30 秒自动刷新
-- **Excel 导出**：导出原始数据（Sheet 1）和统计汇总（Sheet 2）
+- **CSV 导出**：UTF-8 BOM 编码，Excel 直接打开
 - **多语言**：简体中文 / English 界面切换
 - **管理员白名单**：支持动态增删管理员
 
-### 技术栈
+## 技术栈 / Tech Stack
 
-| 层 | 技术 |
+| 层 Layer | 技术 Technology |
 |---|---|
-| 后端 | Go 1.24 + chi/v5 |
-| 前端 | Vue 3 + ECharts 5（本地化，零 CDN 依赖） |
-| 存储 | JSON 文件存储 |
-| 导出 | excelize/v2 |
-| 部署 | 单一 exe，无外部依赖 |
+| 后端 Backend | Classic ASP (VBScript) |
+| 前端 Frontend | Vue 3 + ECharts 5（本地 vendor） |
+| 存储 Storage | JSON 文件 |
+| 认证 Auth | IIS Windows Authentication |
+| 导出 Export | CSV (UTF-8 BOM) |
+| 部署 Deploy | 纯脚本，零编译，零运行时依赖 |
 
-### 快速开始
+## 架构 / Architecture
 
-**前置条件**：Go 1.21+
+```
+浏览器 Browser ──→ IIS (Windows Auth) ──→ api.asp ──→ data/survey.json
+                  └──→ web/ (静态文件)
+```
 
-> 中国用户需先设置 Go 代理：`go env -w GOPROXY=https://goproxy.cn,direct`
+不再有 Go exe、不再有 localhost:8080 代理、不再有 ARR 模块。
 
-```bash
+## 快速开始 / Quick Start
+
+**前置条件**：Windows Server 2016+，IIS + URL Rewrite 模块
+
+```cmd
 git clone https://github.com/JLV2025/survey.git
-cd survey
-go build -o survey.exe .
-./survey.exe
+cd survey\offline-package
+install.bat
 ```
 
-访问 `http://localhost:8080`，默认管理员账号 `admin`（Mock 模式下无需密码）。
+以管理员身份运行 PowerShell：
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+C:\SurveyServer\setup-iis.ps1
+```
 
-### 部署到 Windows Server
+在 `C:\SurveyServer\config.json` 中填入管理员域账号：
+```json
+{
+  "initial_admin": "your_account"
+}
+```
 
-#### 部署目录结构
+访问 `http://<server-name>`。
 
-所有路径相对于 `survey.exe` 所在目录解析（非工作目录）：
+## 部署 / Deploy
+
+### 部署目录结构
 
 ```
-C:\apps\survey\              ← 部署根目录
-├── survey.exe               ← Go 编译产物
-├── config.json              ← 配置文件（与 exe 同级）
-├── setup-iis.ps1            ← IIS 反向代理一键配置脚本
-├── web\                     ← 前端静态文件（与 exe 同级）
+C:\SurveyServer\
+├── asp\
+│   ├── api.asp              ← REST API (约 1100 行)
+│   └── json.asp             ← JSON 编解码
+├── web\                     ← 前端静态文件
 │   ├── index.html
-│   ├── css\
+│   ├── logo.gif
+│   ├── css\style.css
 │   └── js\
-│       └── vendor\
-└── data\                    ← 数据目录（自动创建）
-    └── survey.json
+│       ├── api.js
+│       ├── app.js
+│       ├── i18n.js
+│       ├── vendor\
+│       └── components\
+├── data\
+│   └── survey.json          ← 数据库（JSON 文件）
+├── config.json              ← 管理员配置
+├── web.config               ← IIS URL Rewrite 规则
+├── setup-iis.ps1            ← IIS 一键配置脚本
+└── install.bat              ← 安装脚本
 ```
 
-#### 方式一：直接运行（测试用）
+### 安装步骤
 
-```powershell
-cd C:\apps\survey
-.\survey.exe
-```
+1. 复制 `offline-package\` 到服务器 `C:\SurveyServer\`
+2. 以管理员身份运行 `C:\SurveyServer\setup-iis.ps1`
+3. 编辑 `C:\SurveyServer\config.json`，填入 `initial_admin`（域用户名）
+4. 浏览器访问 `http://<server-name>`
 
-#### 方式二：注册为 Windows 服务（推荐生产环境）
+### 一键配置脚本
 
-使用 [NSSM](https://nssm.cc/)：
+`setup-iis.ps1` 自动完成：
+- 安装 IIS + Windows 认证 + ASP 功能
+- 创建 IIS 站点 "Survey"，绑定 80 端口
+- 启用 Windows 认证，禁用匿名认证
+- 部署 web.config（API 路由 + .json 访问拦截）
+- 创建 data\ 目录和 config.json
+- 安全加固：禁止 .json 文件直接 HTTP 访问
 
-```powershell
-nssm install SurveyService "C:\apps\survey\survey.exe"
-nssm set SurveyService AppDirectory "C:\apps\survey"
-nssm start SurveyService
-```
-
-`AppDirectory` 设置为 exe 所在目录，确保相对路径正确解析。
-
-#### 方式三：IIS 反向代理 + NTLM（域认证生产环境）
-
-Windows 域环境下推荐此方案，IIS 负责 Windows 认证，Go 后端从 Header 读取用户名。
-
-**前提：** 在部署服务器上下载安装两个 IIS 模块（双击安装，一路下一步）：
-- [URL Rewrite](https://www.iis.net/downloads/microsoft/url-rewrite)
-- [ARR v3.0](https://www.iis.net/downloads/microsoft/application-request-routing)
-
-**一键配置：** 以管理员身份运行项目中的 `setup-iis.ps1`。
-
-**手动配置步骤：**
-
-1. 安装 IIS + Windows 认证：
-```powershell
-Install-WindowsFeature -Name Web-Server, Web-Windows-Auth, Web-Mgmt-Console
-```
-
-2. 创建站点并启用 Windows 认证：
-```powershell
-New-Item -Path "C:\inetpub\survey-proxy" -ItemType Directory -Force
-New-IISSite -Name "SurveyProxy" -PhysicalPath "C:\inetpub\survey-proxy" -BindingInformation "*:80:"
-Set-WebConfigurationProperty -Filter "system.webServer/security/authentication/anonymousAuthentication" -Name Enabled -Value False -Location "SurveyProxy"
-Set-WebConfigurationProperty -Filter "system.webServer/security/authentication/windowsAuthentication" -Name Enabled -Value True -Location "SurveyProxy"
-```
-
-3. 写入反向代理规则 `C:\inetpub\survey-proxy\web.config`：
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-    <system.webServer>
-        <rewrite>
-            <rules>
-                <rule name="ReverseProxy" stopProcessing="true">
-                    <match url="(.*)" />
-                    <action type="Rewrite" url="http://localhost:8080/{R:1}" />
-                    <serverVariables>
-                        <set name="HTTP_X-Forwarded-User" value="{REMOTE_USER}" />
-                    </serverVariables>
-                </rule>
-            </rules>
-            <allowedServerVariables>
-                <add name="HTTP_X_FORWARDED_USER" />
-            </allowedServerVariables>
-        </rewrite>
-    </system.webServer>
-</configuration>
-```
-
-4. 启用 ARR 代理：
-```powershell
-Set-WebConfigurationProperty -Filter "system.webServer/proxy" -Name Enabled -Value True -Location "SurveyProxy"
-```
-
-**认证链路：**
-```
-浏览器 → IIS (:80) → Windows 认证 → X-Forwarded-User: CORP\jingl → Go (:8080)
-```
-
-#### 防火墙配置
-
-```powershell
-New-NetFirewallRule -DisplayName "Survey System" -Direction Inbound -Port 8080 -Protocol TCP -Action Allow
-```
-
-### 配置说明
+## 配置 / Configuration
 
 `config.json`：
 
 | 字段 | 说明 |
 |---|---|
-| `port` | 服务端口（默认 8080） |
-| `auth_mode` | `mock`（开发/测试）或 `ntlm`（IIS 反向代理） |
-| `mock_username` | Mock 模式下模拟的用户名，如 `admin` 或 `CORP\jingl` |
-| `initial_admin` | 首次启动自动创建的管理员，支持域账号格式 `CORP\user` |
-| `db_path` | JSON 数据文件路径（相对路径基于 exe 目录） |
+| `initial_admin` | 初始管理员域用户名（逗号分隔多个），首次启动后可为空 |
 
-**开发/测试环境（Mock 模式）：**
 ```json
 {
-  "port": 8080,
-  "auth_mode": "mock",
-  "mock_username": "admin",
-  "initial_admin": "admin",
-  "db_path": "data/survey.json"
+  "initial_admin": "CORP\\your_account,jingl"
 }
 ```
 
-**生产环境（NTLM + IIS 反向代理）：**
-```json
-{
-  "port": 8080,
-  "auth_mode": "ntlm",
-  "mock_username": "",
-  "initial_admin": "CORP\\your_account",
-  "db_path": "data/survey.json"
-}
-```
-`mock_username` 留空，用户名由 IIS 通过 `X-Forwarded-User` Header 注入。
-
-### 故障排查
-
-| 现象 | 原因 | 解决 |
-|---|---|---|
-| 管理员页面显示"加载中"，按钮无反应 | NTLM 认证未通过，API 返回 403 | 检查是否配置了 IIS 反向代理；开发环境使用 mock 模式 |
-| 日志提示 `认证头缺失` | `mock_username` 为空且无 NTLM 代理 | 设置 `mock_username` 或配置 IIS |
-| 数据修改后刷新丢失 | `data/` 目录无写入权限 | 给 `data/` 目录添加写入权限 |
-| 找不到 config.json | 部署路径不正确 | 确保 `config.json` 与 `survey.exe` 在同级目录 |
-| NSSM 服务启动失败 | 工作目录不是 exe 所在目录 | 设置 `nssm set SurveyService AppDirectory "C:\apps\survey"` |
-
-### API 端点
+## API 端点
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/health` | 健康检查 |
-| GET | `/api/me` | 当前用户信息 |
-| GET | `/api/surveys/{id}` | 获取问卷 |
+| GET | `/api/me` | 当前用户信息（含 is_admin） |
+| GET | `/api/check-admin` | 检查是否管理员 |
+| GET | `/api/surveys/{id}` | 获取问卷（含题目） |
+| GET | `/api/surveys/{id}/check` | 检查是否已提交 |
 | POST | `/api/surveys/{id}/submit` | 提交问卷 |
 | GET | `/api/surveys/{id}/stats` | 统计结果 |
 | GET | `/api/admin/surveys` | 管理员：问卷列表 |
-| GET | `/api/admin/surveys/{id}/export` | 导出 Excel |
+| POST | `/api/admin/surveys` | 创建问卷 |
+| PUT | `/api/admin/surveys/{id}` | 更新问卷 |
+| DELETE | `/api/admin/surveys/{id}` | 删除问卷 |
+| PUT | `/api/admin/surveys/{id}/status` | 发布/关闭问卷 |
+| POST | `/api/admin/surveys/{id}/questions` | 创建题目 |
+| PUT | `/api/admin/surveys/{id}/questions/{qid}` | 更新题目 |
+| DELETE | `/api/admin/surveys/{id}/questions/{qid}` | 删除题目 |
+| PUT | `/api/admin/surveys/{id}/questions/reorder` | 题目排序 |
+| GET | `/api/admin/surveys/{id}/submissions` | 提交记录 |
+| GET | `/api/admin/surveys/{id}/export` | 导出 CSV |
+| GET | `/api/admin/users` | 管理员列表 |
+| POST | `/api/admin/users` | 添加管理员 |
+| DELETE | `/api/admin/users/{id}` | 删除管理员 |
 
-日志文件 `survey.log` 在运行目录自动生成，同时输出到 stdout。
-
-### 使用指南
-
-#### 管理员操作
-
-1. 打开 `http://<服务器>:8080`，自动进入管理后台
-2. **新建问卷**：点击"新建问卷"，填写标题、描述，选择是否匿名
-3. **设计问卷**：点击"设计"，从左侧拖拽题型到画布，编辑题目和选项
-4. **发布问卷**：在问卷列表点击"发布"
-5. **分发链接**：点击"复制链接"，将 URL 发送给受访者
-6. **查看统计**：点击"统计"，查看饼图和汇总数据
-7. **导出数据**：点击"导出"，下载 Excel 文件
-
-#### 受访者操作
-
-1. 打开问卷链接（如 `http://<服务器>:8080/#/fill/<问卷ID>`）
-2. 按分步向导逐题填写
-3. 草稿自动保存在浏览器中，关闭后重新打开可恢复
-4. 点击"提交"完成，不可修改
-5. 提交后自动跳转至统计页面
-
-### 项目结构
+## 项目结构 / Project Structure
 
 ```
 survey/
-├── main.go                    # 入口
-├── config.json                # 开发配置
-├── config.prod.json           # 生产配置模板
-├── internal/
-│   ├── handler/               # HTTP 处理器
-│   │   ├── admin.go           # 管理 + 问卷 + 统计
-│   │   ├── question.go        # 题目 CRUD
-│   │   ├── export.go          # Excel 导出
-│   │   └── helpers.go         # 响应工具
-│   ├── middleware/auth.go     # 认证中间件
-│   ├── model/models.go        # 数据模型
-│   └── store/db.go            # JSON 文件存储
-├── web/                       # 前端
-│   ├── index.html             # SPA 入口
-│   ├── css/style.css          # 样式
-│   └── js/                    # Vue 组件 + API + i18n
-│       └── vendor/            # 本地化 JS 库
-└── data/                      # 运行时数据（自动创建）
-```
-
----
-
-## English Documentation
-
-### Features
-
-- Drag-and-drop survey designer (single/multiple choice, short/long text)
-- Step wizard for respondents (one question per page)
-- Windows NTLM domain auth; mock mode for development
-- Duplicate submission prevention
-- Anonymous survey mode
-- Real-time ECharts statistics with 30s auto-refresh
-- Excel export (raw data + summary)
-- i18n: Simplified Chinese / English
-- Admin whitelist management
-
-### Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Backend | Go 1.24 + chi/v5 |
-| Frontend | Vue 3 + ECharts 5 (local vendor, zero CDN dependency) |
-| Storage | JSON file |
-| Export | excelize/v2 |
-| Deployment | Single binary, zero dependencies |
-
-### Quick Start
-
-**Prerequisites**: Go 1.21+
-
-> Users in China must set Go proxy first: `go env -w GOPROXY=https://goproxy.cn,direct`
-
-```bash
-git clone https://github.com/JLV2025/survey.git
-cd survey
-go build -o survey.exe .
-./survey.exe
-```
-
-Open `http://localhost:8080`. Default admin: `admin` (no password in mock mode).
-
-### Deploy to Windows Server
-
-#### Directory Layout
-
-All paths resolve relative to `survey.exe`, not the working directory:
-
-```
-C:\apps\survey\              ← deployment root
-├── survey.exe
-├── config.json              ← same directory as exe
-├── setup-iis.ps1            ← IIS reverse proxy setup script
-├── web\                     ← frontend files (same directory as exe)
+├── asp/                       ← Classic ASP 后端
+│   ├── api.asp                ← 主 API（路由 + 全部 handler）
+│   └── json.asp               ← JSON 编解码（纯 VBScript）
+├── web/                       ← 前端（Vue 3 SPA）
 │   ├── index.html
-│   ├── css\
-│   └── js\
-│       └── vendor\
-└── data\                    ← auto-created
-    └── survey.json
+│   ├── logo.gif
+│   ├── css/style.css
+│   └── js/
+│       ├── api.js             ← API 封装
+│       ├── app.js             ← 路由 + 初始化
+│       ├── i18n.js            ← 中英文翻译
+│       ├── vendor/            ← 本地化 JS 库
+│       └── components/        ← Vue 组件
+├── config.json                ← 管理员配置
+├── web.config                 ← IIS URL Rewrite 规则
+├── setup-iis.ps1              ← IIS 一键配置脚本
+├── offline-package/           ← 部署包（复制即用）
+│   ├── asp/
+│   ├── web/
+│   ├── data/
+│   ├── config.json
+│   ├── web.config
+│   ├── setup-iis.ps1
+│   └── install.bat
+├── _go-backend/               ← (归档) Go 后端源码 + internal/
+├── _vendor/                   ← IIS 模块安装包 (rewrite/ARR)
+└── data/                      ← 运行时数据（自动创建）
 ```
 
-#### Option 1: Direct Run (testing)
+## 开发说明 / Development
 
-```powershell
-cd C:\apps\survey
-.\survey.exe
-```
+### 后端
 
-#### Option 2: Windows Service (recommended for production)
+- 一个 `api.asp`（~1100 行 VBScript）处理全部 REST API
+- URL 路由通过 IIS rewrite 规则：`/api/*` → `/api.asp?__path=*`
+- JSON 编解码为纯 VBScript 手动实现（`json.asp`），无需 COM 组件
+- Windows 认证由 IIS 层面处理，ASP 通过 `LOGON_USER` 获取用户名
+- 数据存储在 `data/survey.json`，`Application.Lock` 保证并发安全
 
-Using [NSSM](https://nssm.cc/):
+### 前端
 
-```powershell
-nssm install SurveyService "C:\apps\survey\survey.exe"
-nssm set SurveyService AppDirectory "C:\apps\survey"
-nssm start SurveyService
-```
+- Vue 3 CDN 模式，无需 Node.js 构建环境
+- 直接修改 `web/js/` 中的文件即可生效
+- 静态资源走 `/static/` 路径（web.config rewrite → web/）
 
-#### Option 3: IIS Reverse Proxy + NTLM (domain auth)
+### 功能亮点
 
-**Prerequisites:** Install [URL Rewrite](https://www.iis.net/downloads/microsoft/url-rewrite) and [ARR v3.0](https://www.iis.net/downloads/microsoft/application-request-routing) on the server.
+- **管理员按钮**：admin-dashboard 标题栏直接显示，无需经过"新建问卷"
+- **填写入口**：每个问卷卡有"填写"按钮，直接跳转填写页
+- **空题目提示**：问卷无题目时显示 📋 提示，不再只有灰色按钮
+- **错误区分**：网络故障显示"服务器错误"，业务错误显示具体原因
+- **CSV 导出**：UTF-8 BOM，Excel 双击打开不乱码
 
-**One-click:** Run `setup-iis.ps1` as Administrator.
+### 安全措施
 
-**Auth flow:**
-```
-Browser → IIS (:80) → Windows Auth → X-Forwarded-User: CORP\user → Go (:8080)
-```
+- `.json` 文件禁止 HTTP 直接访问（IIS request filtering）
+- 管理员路由统一 `RequireAdmin()` 守卫
+- CSV 导出文件名过滤控制字符
+- JSON 解析器深度限制
 
-#### Firewall
+## 故障排查 / Troubleshooting
 
-```powershell
-New-NetFirewallRule -DisplayName "Survey System" -Direction Inbound -Port 8080 -Protocol TCP -Action Allow
-```
-
-### Configuration
-
-`config.json`:
-
-| Field | Description |
-|---|---|
-| `port` | Server port (default: 8080) |
-| `auth_mode` | `mock` (dev/test) or `ntlm` (IIS proxy) |
-| `mock_username` | Simulated username in mock mode, e.g. `admin` or `DOMAIN\user` |
-| `initial_admin` | Auto-created admin on first run, supports `DOMAIN\user` format |
-| `db_path` | JSON data path (relative to exe directory) |
-
-**Dev/Test (Mock mode):**
-```json
-{
-  "port": 8080,
-  "auth_mode": "mock",
-  "mock_username": "admin",
-  "initial_admin": "admin",
-  "db_path": "data/survey.json"
-}
-```
-
-**Production (NTLM + IIS):**
-```json
-{
-  "port": 8080,
-  "auth_mode": "ntlm",
-  "mock_username": "",
-  "initial_admin": "DOMAIN\\your_account",
-  "db_path": "data/survey.json"
-}
-```
-
-### Troubleshooting
-
-| Symptom | Cause | Fix |
+| 现象 | 原因 | 解决 |
 |---|---|---|
-| Admin page stuck on "Loading...", buttons unresponsive | NTLM auth failed, API returns 403 | Check IIS reverse proxy; use mock mode for dev |
-| Log shows `WARNING: 认证头缺失` | No `mock_username` and no NTLM proxy | Set `mock_username` or configure IIS |
-| Data changes lost after reload | No write permission on `data/` directory | Grant write permission to `data/` |
-| `config.json` not found | Wrong deployment path | Ensure `config.json` is in same directory as `survey.exe` |
-| NSSM service fails to start | Wrong working directory | Set `AppDirectory` to exe path with NSSM |
+| 页面空白，无导航栏 | `/api/me` 未返回用户信息 | 检查 IIS Windows 认证是否启用；匿名认证是否禁用 |
+| "认证失败" | LOGON_USER 为空 | 确保浏览器使用 FQDN 访问（非 IP），站点在 Intranet Zone |
+| "无管理员权限" | 用户名不在管理员列表 | 检查 `config.json` 的 `initial_admin`，或通过 `/api/admin/users` 添加 |
+| 问卷填写页显示"暂无题目" | 问卷已发布但未添加题目 | 在设计器中添加题目后重新发布 |
+| 数据修改后重启丢失 | `data/` 目录无写入权限 | 给 IIS 应用池账户（IIS APPPOOL\Survey）添加 `data/` 写入权限 |
+| CSV 导出乱码 | Excel 未正确识别编码 | 确认用 Excel（非记事本）打开；CSV 带有 UTF-8 BOM 头 |
 
-### API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Health check |
-| GET | `/api/me` | Current user info |
-| GET | `/api/surveys/{id}` | Get survey |
-| POST | `/api/surveys/{id}/submit` | Submit survey |
-| GET | `/api/surveys/{id}/stats` | Statistics |
-| GET | `/api/admin/surveys` | Admin: list surveys |
-| GET | `/api/admin/surveys/{id}/export` | Export Excel |
-
-### Usage Guide
-
-#### Admin Operations
-
-1. Open `http://<server>:8080`, auto-enters admin panel
-2. **Create Survey**: Click "New Survey", fill in title, description, choose anonymous mode
-3. **Design Survey**: Click "Design", drag question types from left panel to canvas, edit title and options
-4. **Publish Survey**: Click "Publish" in survey list
-5. **Share Link**: Click "Copy Link", send URL to respondents
-6. **View Statistics**: Click "Stats", view pie charts and summary data
-7. **Export Data**: Click "Export", download Excel file
-
-#### Respondent Operations
-
-1. Open survey link (e.g. `http://<server>:8080/#/fill/<surveyID>`)
-2. Fill in step-by-step wizard (one question per page)
-3. Drafts auto-saved in browser, restored on reopen
-4. Click "Submit" to complete (cannot modify after submission)
-5. Auto-redirect to statistics page after submission
-
-### Project Structure
-
-```
-survey/
-├── main.go                    # Entry point
-├── config.json                # Dev config
-├── config.prod.json           # Production config template
-├── internal/
-│   ├── handler/               # HTTP handlers
-│   │   ├── admin.go           # Admin + survey + stats
-│   │   ├── question.go        # Question CRUD
-│   │   ├── export.go          # Excel export
-│   │   └── helpers.go         # Response utilities
-│   ├── middleware/auth.go     # Auth middleware
-│   ├── model/models.go        # Data models
-│   └── store/db.go            # JSON file storage
-├── web/                       # Frontend
-│   ├── index.html             # SPA entry
-│   ├── css/style.css          # Styles
-│   └── js/                    # Vue components + API + i18n
-│       └── vendor/            # Local JS libraries
-└── data/                      # Runtime data (auto-created)
-```
-
-### License
+## License
 
 MIT

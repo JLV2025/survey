@@ -23,6 +23,14 @@ func GetMe(w http.ResponseWriter, r *http.Request) {
 	}))
 }
 
+// CheckAdmin 检查当前用户是否为管理员（非特权路由）
+func CheckAdmin(w http.ResponseWriter, r *http.Request) {
+	username := middleware.GetUsername(r)
+	writeJSON(w, 200, okResp(map[string]bool{
+		"is_admin": store.IsAdmin(username),
+	}))
+}
+
 // ====== 问卷（受访者端） ======
 
 // GetSurvey 获取问卷（含题目，仅已发布状态可公开访问）

@@ -114,6 +114,7 @@ func main() {
 	// API 路由
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/me", handler.GetMe)
+		r.Get("/check-admin", handler.CheckAdmin)
 
 		r.Get("/surveys/{id}", handler.GetSurvey)
 		r.Get("/surveys/{id}/check", handler.CheckSubmitted)

@@ -3,7 +3,11 @@ const BASE = '/api';
 
 async function apiGet(path) {
   const res = await fetch(BASE + path);
-  if (!res.ok) throw new Error('Network error: ' + res.status);
+  if (!res.ok) {
+    let msg = 'Network error: ' + res.status;
+    try { const b = await res.json(); if (b.message) msg = b.message; } catch (_) {}
+    return { ok: false, message: msg };
+  }
   return res.json();
 }
 
@@ -13,7 +17,11 @@ async function apiPost(path, body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error('Network error: ' + res.status);
+  if (!res.ok) {
+    let msg = 'Network error: ' + res.status;
+    try { const b = await res.json(); if (b.message) msg = b.message; } catch (_) {}
+    return { ok: false, message: msg };
+  }
   return res.json();
 }
 
@@ -23,18 +31,27 @@ async function apiPut(path, body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error('Network error: ' + res.status);
+  if (!res.ok) {
+    let msg = 'Network error: ' + res.status;
+    try { const b = await res.json(); if (b.message) msg = b.message; } catch (_) {}
+    return { ok: false, message: msg };
+  }
   return res.json();
 }
 
 async function apiDelete(path) {
   const res = await fetch(BASE + path, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Network error: ' + res.status);
+  if (!res.ok) {
+    let msg = 'Network error: ' + res.status;
+    try { const b = await res.json(); if (b.message) msg = b.message; } catch (_) {}
+    return { ok: false, message: msg };
+  }
   return res.json();
 }
 
 // ====== 用户 ======
 function fetchMe() { return apiGet('/me'); }
+function checkAdmin() { return apiGet('/check-admin'); }
 
 // ====== 问卷（受访者端） ======
 function fetchSurvey(id) { return apiGet('/surveys/' + id); }
@@ -54,7 +71,10 @@ function deleteQuestion(surveyId, qid) { return apiDelete('/admin/surveys/' + su
 function reorderQuestions(surveyId, ids) { return apiPut('/admin/surveys/' + surveyId + '/questions/reorder', { ids }); }
 function fetchSubmissions(surveyId) { return apiGet('/admin/surveys/' + surveyId + '/submissions'); }
 function exportExcel(surveyId) {
-  return fetch(BASE + '/admin/surveys/' + surveyId + '/export').then(r => r.blob());
+  return fetch(BASE + '/admin/surveys/' + surveyId + '/export').then(r => {
+    if (!r.ok) throw new Error('导出失败: ' + r.status);
+    return r.blob();
+  });
 }
 function fetchAdmins() { return apiGet('/admin/users'); }
 function addAdmin(username) { return apiPost('/admin/users', { username }); }
@@ -68,7 +88,7 @@ function getSurveyURL(id) {
 
 function copyToClipboard(text) {
   if (navigator.clipboard && window.isSecureContext) {
-    return navigator.clipboard.writeText(text);
+    return navigator.clipboard.writeText(text).catch(() => {});
   }
   // fallback for HTTP
   const ta = document.createElement('textarea');
@@ -77,6 +97,7 @@ function copyToClipboard(text) {
   ta.style.left = '-9999px';
   document.body.appendChild(ta);
   ta.select();
-  document.execCommand('copy');
+  const ok = document.execCommand('copy');
   document.body.removeChild(ta);
+  if (!ok) throw new Error('复制失败');
 }

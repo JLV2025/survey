@@ -76,7 +76,7 @@ func isNTLMType1(r *http.Request) bool {
 
 // isPrivilegedRoute returns true for routes that require authentication.
 func isPrivilegedRoute(path string) bool {
-	return strings.HasPrefix(path, "/api/admin/") || path == "/api/me"
+	return strings.HasPrefix(path, "/api/admin/")
 }
 
 func GetUsername(r *http.Request) string {

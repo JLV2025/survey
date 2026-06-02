@@ -2,7 +2,7 @@
 chcp 65001 >nul
 
 echo ============================================
-echo   内部调查系统 - 离线安装
+echo   内部调查系统 - 安装
 echo ============================================
 echo.
 
@@ -11,38 +11,36 @@ if not exist "C:\SurveyServer" mkdir "C:\SurveyServer"
 
 echo 复制程序文件...
 xcopy /E /I /Y "%~dp0web" "C:\SurveyServer\web" >nul
-copy /Y "%~dp0survey.exe" "C:\SurveyServer\" >nul
-copy /Y "%~dp0config.json" "C:\SurveyServer\" >nul
-copy /Y "%~dp0setup-iis.ps1" "C:\SurveyServer\" >nul
+xcopy /E /I /Y "%~dp0asp" "C:\SurveyServer\asp" >nul
+copy /Y "%~dp0config.json" "C:\SurveyServer\" >nul 2>nul
+copy /Y "%~dp0web.config" "C:\SurveyServer\" >nul
 
 echo 创建数据目录...
 if not exist "C:\SurveyServer\data" mkdir "C:\SurveyServer\data"
 
 echo.
-echo 是否注册为 Windows 服务? (y/n)
-set /p SVC_CHOICE=
-if /i "%SVC_CHOICE%"=="y" (
-    sc create "SurveyServer" binPath= "C:\SurveyServer\survey.exe" start= auto
-    sc description "SurveyServer" "内部调查系统"
-    sc start "SurveyServer"
-    echo 服务已注册并启动。
-) else (
-    echo 跳过服务注册。请手动运行: C:\SurveyServer\survey.exe
-)
+echo 复制 IIS 配置脚本...
+copy /Y "%~dp0setup-iis.ps1" "C:\SurveyServer\" >nul
 
 echo.
 echo ============================================
 echo   安装完成！
 echo.
-echo   服务端口: 8080 (见 config.json)
 echo   程序目录: C:\SurveyServer
-echo   日志文件: C:\SurveyServer\survey.log
-echo   数据文件: C:\SurveyServer\data\survey.json
+echo                      ├── asp\api.asp     ^(REST API^)
+echo                      ├── asp\json.asp    ^(JSON 工具^)
+echo                      ├── web\            ^(前端页面^)
+echo                      ├── data\           ^(survey.json 数据库^)
+echo                      ├── config.json     ^(管理员配置^)
+echo                      ├── web.config      ^(IIS URL 规则^)
+echo                      └── setup-iis.ps1   ^(IIS 配置脚本^)
 echo.
-echo   IIS 反向代理（可选，用于 NTLM 认证）:
-echo     以管理员身份运行 PowerShell:
-echo       Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-echo       C:\SurveyServer\setup-iis.ps1
-echo   前提: 需安装 IIS URL Rewrite ^& ARR 模块
+echo   下一步：以管理员身份运行 PowerShell:
+echo     Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+echo     C:\SurveyServer\setup-iis.ps1
+echo.
+echo   前提: IIS 已安装 ^(含 URL Rewrite 模块^)。
+echo   架构: IIS Windows Auth + Classic ASP，无需 Go 后端。
+echo   域用户自动获取用户名，无登录弹窗。
 echo ============================================
 pause
