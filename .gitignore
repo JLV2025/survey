@@ -16,6 +16,8 @@ data/
 *.tmp
 *.log
 error.txt
+conversation-*.txt
+*-this-session-is-being-continued-*.txt
 
 # 截图
 *.png
