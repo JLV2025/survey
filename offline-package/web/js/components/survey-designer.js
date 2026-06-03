@@ -12,6 +12,8 @@ window.__surveyDesigner = {
       editOptions: [],
       dragOver: false,
       dragIdx: null,
+      showAddDialog: false,
+      addType: 'single',
     };
   },
   methods: {
@@ -42,26 +44,38 @@ window.__surveyDesigner = {
     },
     onDragLeave() { this.dragOver = false; },
     async onDrop(e) {
-      e.preventDefault();
-      this.dragOver = false;
-      const type = e.dataTransfer.getData('text/plain');
-      if (!type) return;
-      const typeNames = { single: '单选题', multiple: '多选题', text: '填空题', textarea: '多行文本' };
-      const data = {
-        type: type,
-        title: this.t('type_' + type) || typeNames[type] || type,
-        required: false,
-        char_limit: 0,
-        options: (type === 'single' || type === 'multiple') ? [
-          { content: '选项 1' }, { content: '选项 2' },
-        ] : [],
-      };
-      const res = await createQuestion(this.routeParams.id, data);
-      if (res.ok) {
-        await this.loadSurvey();
-        this.editQuestion(res.data);
-      }
-    },
+        e.preventDefault();
+        this.dragOver = false;
+        const type = e.dataTransfer.getData('text/plain');
+        if (!type) return;
+        await this.createQuestionOfType(type);
+      },
+
+      async createQuestionOfType(type) {
+        const typeNames = { single: '单选题', multiple: '多选题', text: '填空题', textarea: '多行文本' };
+        const data = {
+          type: type,
+          title: this.t('type_' + type) || typeNames[type] || type,
+          required: false,
+          char_limit: 0,
+          options: (type === 'single' || type === 'multiple') ? [
+            { content: '选项 1' }, { content: '选项 2' },
+          ] : [],
+        };
+        try {
+          const res = await createQuestion(this.routeParams.id, data);
+          if (res.ok) {
+            await this.loadSurvey();
+            this.showAddDialog = false;
+            this.editQuestion(res.data);
+          } else {
+            alert(res.message || '添加题目失败');
+          }
+        } catch (e) {
+          console.error('添加题目失败', e);
+          alert('添加题目失败，请重试');
+        }
+      },
 
     // 画布内拖拽排序
     onCanvasDragStart(e, idx) {
@@ -187,10 +201,23 @@ window.__surveyDesigner = {
         </span>
       </div>
       <div style="display:flex;gap:8px">
+        <button class="btn btn-sm btn-outline" @click="showAddDialog=true">{{ t('add_question') }}</button>
         <button class="btn btn-sm btn-outline" @click="openPreview" :disabled="!questions.length">
           {{ t('preview') }}
         </button>
       </div>
+    </div>
+
+    <!-- 添加题目对话框 -->
+    <div v-if="showAddDialog" class="card mt-4">
+      <h3 style="margin-bottom:16px">{{ t('add_question') }}</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-outline" @click="createQuestionOfType('single')">○ {{ t('type_single') }}</button>
+        <button class="btn btn-outline" @click="createQuestionOfType('multiple')">☐ {{ t('type_multiple') }}</button>
+        <button class="btn btn-outline" @click="createQuestionOfType('text')">— {{ t('type_text') }}</button>
+        <button class="btn btn-outline" @click="createQuestionOfType('textarea')">☰ {{ t('type_textarea') }}</button>
+      </div>
+      <button class="btn btn-sm btn-outline mt-4" @click="showAddDialog=false">{{ t('cancel') }}</button>
     </div>
 
     <!-- 预览模式 -->
