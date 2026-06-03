@@ -58,6 +58,6 @@ echo  Next steps:
 echo  1. Edit config.json → set initial_admin
 echo     to your domain username (lowercase)
 echo  2. Run: iisreset
-echo  3. Verify: curl http://localhost/asp/api.aspx?path=health
+echo  3. Verify: curl http://localhost/asp/api.ashx?path=health
 echo ========================================
 pause
