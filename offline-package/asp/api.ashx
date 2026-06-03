@@ -34,6 +34,7 @@ public class SurveyApi : IHttpHandler {
         if (n > 0 && seg[0] == "admin") {
             if (!RequireAdmin(ctx)) return;
             if (method == "GET" && n == 2 && seg[1] == "surveys") { HandleListAdminSurveys(ctx); return; }
+            if (method == "GET" && n == 3 && seg[1] == "surveys") { HandleGetAdminSurvey(ctx, seg[2]); return; }
             if (method == "POST" && n == 2 && seg[1] == "surveys") { HandleCreateAdminSurvey(ctx); return; }
             if (method == "PUT" && n == 3 && seg[1] == "surveys") { HandleUpdateAdminSurvey(ctx, seg[2]); return; }
             if (method == "DELETE" && n == 3 && seg[1] == "surveys") { HandleDeleteAdminSurvey(ctx, seg[2]); return; }
@@ -463,6 +464,35 @@ public class SurveyApi : IHttpHandler {
             list.Add(copy);
         }
         WriteOk(ctx, list.ToArray());
+    }
+
+    void HandleGetAdminSurvey(HttpContext ctx, string id) {
+        var db = ReadDB();
+        object[] surveys = (object[])db["surveys"];
+        object[] questions = (object[])db["questions"];
+        object[] options = (object[])db["options"];
+        object found = null;
+        foreach (var s in surveys) {
+            var sd = (Dictionary<string, object>)s;
+            if (Convert.ToString(sd["id"]) == id) { found = sd; break; }
+        }
+        if (found == null) { WriteErr(ctx, "survey not found"); return; }
+        var sd2 = (Dictionary<string, object>)found;
+        var qlist = new List<object>();
+        foreach (var q in questions) {
+            var qd = (Dictionary<string, object>)q;
+            if (Convert.ToString(qd["survey_id"]) != id) continue;
+            var olist = new List<object>();
+            foreach (var o in options) {
+                var od = (Dictionary<string, object>)o;
+                if (Convert.ToString(od["question_id"]) == Convert.ToString(qd["id"]))
+                    olist.Add(od);
+            }
+            qd["options"] = olist.ToArray();
+            qlist.Add(qd);
+        }
+        sd2["questions"] = qlist.ToArray();
+        WriteOk(ctx, sd2);
     }
 
     void HandleCreateAdminSurvey(HttpContext ctx) {

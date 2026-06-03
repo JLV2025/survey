@@ -20,10 +20,9 @@ window.__surveyDesigner = {
     async loadSurvey() {
       const id = this.routeParams.id;
       if (!id) return;
-      // 管理员直接获取（通过 API）
-      const res = await apiGet('/surveys/' + id);
+      const res = await apiGet('/admin/surveys/' + id);
       if (res.ok && res.data) {
-        this.survey = res.data.survey;
+        this.survey = res.data;
         this.questions = res.data.questions || [];
       }
       this.loading = false;
