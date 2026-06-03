@@ -13,9 +13,10 @@ public class SurveyApi : IHttpHandler {
             ctx.Response.ContentType = "application/json";
             ctx.Response.Charset = "UTF-8";
             var path = ctx.Request.QueryString["path"] ?? "";
+            if (path.StartsWith("/")) path = path.Substring(1);
             Route(ctx, ctx.Request.HttpMethod.ToUpperInvariant(), path);
         } catch (Exception ex) {
-            ctx.Response.Write("{\"ok\":false,\"message\":\"error: " + ex.Message + "\"}");
+            ctx.Response.Write("{\"ok\":false,\"message\":\"error: " + EscapeJson(ex.Message) + "\"}");
         }
     }
 

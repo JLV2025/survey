@@ -1,5 +1,5 @@
 ﻿// API 璇锋眰灏佽
-const BASE = '/asp/api.aspx?path=';
+const BASE = '/asp/api.ashx?path=';
 
 async function apiGet(path) {
   const res = await fetch(BASE + path);
@@ -72,7 +72,11 @@ function reorderQuestions(surveyId, ids) { return apiPut('/admin/surveys/' + sur
 function fetchSubmissions(surveyId) { return apiGet('/admin/surveys/' + surveyId + '/submissions'); }
 function exportExcel(surveyId) {
   return fetch(BASE + '/admin/surveys/' + surveyId + '/export').then(r => {
-    if (!r.ok) throw new Error('瀵煎嚭澶辫触: ' + r.status);
+    if (!r.ok) throw new Error('导出失败: ' + r.status);
+    var ct = r.headers.get('Content-Type') || '';
+    if (ct.indexOf('application/json') !== -1) {
+      return r.json().then(function(j) { throw new Error(j.message || '导出失败'); });
+    }
     return r.blob();
   });
 }

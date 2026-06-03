@@ -17,7 +17,7 @@ Write-Host "========================================"
 
 # ===== 1/5: 安装 IIS 功能 =====
 Write-Host "`n=== 1/5: 安装 IIS + Windows Auth + ASP.NET 4.8 ==="
-Install-WindowsFeature -Name Web-Server, Web-Windows-Auth, Web-ASP-Net45, Web-Mgmt-Console
+Install-WindowsFeature -Name Web-Server, Web-Asp-Net45, Web-Net-Ext45, Web-ISAPI-Ext, Web-ISAPI-Filter, Web-Windows-Auth, Web-Default-Doc, Web-Static-Content, Web-Filtering, Web-Mgmt-Console
 
 # ===== 2/5: 注册 ASP.NET 4.8 到 IIS =====
 Write-Host "`n=== 2/5: 注册 ASP.NET 4.8 ==="
@@ -26,8 +26,7 @@ if (Test-Path $aspnetReg) {
     & $aspnetReg -i
     Write-Host "  ASP.NET 4.8 registered."
 } else {
-    Write-Host "  [WARN] aspnet_regiis.exe not found at $aspnetReg"
-    Write-Host "  Run: dism /online /enable-feature /featurename:IIS-ASPNET45"
+    Write-Host "  SKIP: aspnet_regiis.exe not found (not required on Server 2016+)"
 }
 
 # ===== 3/5: 创建/重置 IIS 站点 =====

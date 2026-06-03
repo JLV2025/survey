@@ -1,8 +1,20 @@
-# OS
+# OS files
 Thumbs.db
 *.suo
 *.user
+
+# VS
 .vs/
 
-# Temp files
+# Temp
 _iis_feature.log
+log.txt
+
+# Playwright
+.playwright-mcp/
+
+# OpenWolf internal
+.wolf/buglog.json
+.wolf/hooks/_session.json
+.wolf/memory.md
+.wolf/token-ledger.json

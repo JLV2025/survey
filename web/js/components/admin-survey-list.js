@@ -100,13 +100,18 @@ window.__adminSurveyList = {
       this.showSubmissions = survey;
     },
     async exportOne(survey) {
-      const blob = await exportExcel(survey.id);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'survey_' + survey.title + '.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
+      try {
+        const blob = await exportExcel(survey.id);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'survey_' + survey.title + '.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error('导出失败', e);
+        alert(this.t('export_failed') || '导出失败，请重试');
+      }
     },
     copyURL(survey) {
       const url = getSurveyURL(survey.id);

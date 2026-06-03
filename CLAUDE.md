@@ -1,169 +1,219 @@
-# OpenWolf
-
-@.wolf/OPENWOLF.md
-
-This project uses OpenWolf for context management. Read and follow .wolf/OPENWOLF.md every session. Check .wolf/cerebrum.md before generating code. Check .wolf/anatomy.md before reading files.
-
-
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 项目概述
+## Project Overview
 
-内部调查系统 - 轻量级调查平台，部署于 Windows Server 2022。
-- 后端：Go (Golang) - 编译为单一 exe，无需运行时依赖
-- 前端：Vue.js (CDN) + ECharts - 无需 Node 构建环境
-- 数据库：SQLite - 零配置、单文件
-- 端口：8080
+Internal Survey System - Lightweight enterprise survey platform deployed on Windows Server 2022.
+- **Backend**: ASP.NET C# (IHttpHandler) - single .ashx file, no NuGet dependencies
+- **Frontend**: Vue 3 + ECharts (bundled vendor files, no CDN)
+- **Database**: JSON file with atomic write + file locking
+- **Authentication**: IIS Windows Authentication (domain users auto-identified)
+- **Port**: 80 (IIS default)
 
-## 技术栈
-
-### 后端 (Go)
-- 标准库优先
-- 关键依赖：
-  - github.com/mattn/go-sqlite3 - SQLite 驱动
-  - github.com/golang-jwt/jwt/v5 - JWT 认证
-  - github.com/go-ntlmclient/ntlmclient - NTLM 域认证
-  - gopkg.in/yaml.v3 - YAML 配置解析
-
-### 前端 (Vue 3 + CDN)
-- Vue.js 3.x (CDN 引入，无构建)
-- ECharts 图表库
-- Tailwind CSS (可选，用于样式)
-
-## 目录结构
+## Architecture
 
 ```
 survey/
-├── backend/                  # Go 后端
-│   ├── main.go               # 入口文件
-│   ├── config/               # 配置包
-│   │   └── config.go         # 配置加载逻辑
-│   ├── models/               # 数据库模型
-│   ├── handlers/             # HTTP 处理器
-│   ├── middleware/           # 中间件 (NTLM 认证、请求日志)
-│   └── router/               # 路由定义
-├── frontend/                 # Vue 前端 (纯 HTML/JS/CSS)
-│   └── index.html            # 单页应用入口
-├── config/                   # 全局配置文件目录
-│   └── config.yaml           # 应用配置
-├── data/                     # SQLite 数据库文件 (.db)
-├── tests/                    # 测试文件
-├── init.bat                  # 初始化脚本
-├── start.bat                 # 启动脚本
-├── CLAUDE.md                 # Claude 开发指南
-└── 启动指南.md               # 中文启动说明
+├── asp/                    # Backend API (single .ashx file)
+│   └── api.ashx            # All HTTP handlers (CRUD for surveys, questions, submissions)
+├── web/                    # Frontend Vue 3 SPA
+│   ├── index.html          # Single entry point
+│   ├── css/style.css       # Tailwind-like utility-first CSS
+│   └── js/
+│       ├── app.js          # Vue 3 router + main app
+│       ├── api.js          # API request wrapper
+│       ├── i18n.js         # i18n (zh/en)
+│       └── components/     # Vue components
+│           ├── survey-fill.js         # Survey fill wizard
+│           ├── survey-stats.js        # ECharts stats page
+│           ├── admin-dashboard.js     # Admin panel entry
+│           ├── admin-survey-list.js   # Survey CRUD
+│           └── survey-designer.js     # Drag-drop designer
+├── data/                   # JSON database
+│   └── survey.json        # All data (surveys, questions, submissions)
+├── config.json             # Initial admin configuration
+├── install.bat             # One-click offline installer
+├── web.config              # IIS configuration
+└── offline-package/        # Offline deployment package
 ```
 
-## 开发流程
+## Backend (ASP.NET C#)
 
-### 初始化环境
+### Single-File API Handler
+- **File**: `asp/api.ashx`
+- **Pattern**: `IHttpHandler` with `ProcessRequest(HttpContext)`
+- **Routing**: Path-based routing via `path` query string
+- **JSON**: Hand-rolled parser/serializer (C# 5 compatible)
+- **No dependencies**: Pure .NET Framework 4.8 built-in APIs
+
+### API Routes
+All routes via `/asp/api.ashx?path=<route>`:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | health | Health check |
+| GET | me | Current user info (username, is_admin) |
+| GET | check-admin | Check admin permission |
+| GET | surveys/{id} | Get published survey |
+| GET | surveys/{id}/check | Check if submitted |
+| POST | surveys/{id}/submit | Submit response |
+| GET | surveys/{id}/stats | Get statistics |
+| GET | admin/surveys | List surveys (admin) |
+| POST | admin/surveys | Create survey (admin) |
+| PUT | admin/surveys/{id} | Update survey (admin) |
+| DELETE | admin/surveys/{id} | Delete survey (admin) |
+| POST | admin/surveys/{id}/questions | Create question |
+| PUT | admin/surveys/{id}/questions/{qid} | Update question |
+| DELETE | admin/surveys/{id}/questions/{qid} | Delete question |
+| PUT | admin/surveys/{id}/questions/reorder | Reorder questions |
+| GET | admin/surveys/{id}/export | CSV export |
+
+### Authentication
+- **NTLM**: Extracts username from `LOGON_USER`, `AUTH_USER`, or `REMOTE_USER`
+- **Admin check**: Compares against `admins` array in `survey.json` or `config.json` initial_admin
+- **Anonymous**: Disabled (IIS Windows Authentication required)
+
+### Data Storage
+- **File**: `data/survey.json`
+- **Atomic writes**: tmp file + rename + file lock
+- **Empty DB**: Returns empty arrays for surveys, questions, options, submissions, answers, admins
+
+## Frontend (Vue 3)
+
+### Single HTML Entry
+- **File**: `web/index.html`
+- **No build**: CDN-free, all vendor files bundled locally
+- **Vue 3**: `vue.global.prod.js` (production build)
+- **ECharts**: `echarts.min.js` (bundled)
+
+### Vue Router
+- **Routes**: Home, Admin, Survey Fill, Survey Stats, Survey Designer
+- **Navigation**: Click nav-brand to go home, admin button for admin panel
+- **Components**: Dynamically rendered via `<component :is="currentView">`
+
+### i18n
+- **Languages**: Chinese (zh), English (en)
+- **Implementation**: Simple dictionary in `i18n.js`
+- **Toggle**: Buttons in nav-right
+
+## Database Schema (JSON)
+
+```json
+{
+  "surveys": [
+    {
+      "id": "uuid",
+      "title": "Survey Title",
+      "description": "Description",
+      "status": "draft|published|closed",
+      "is_anonymous": false,
+      "deadline": "ISO8601",
+      "created_at": "ISO8601",
+      "updated_at": "ISO8601"
+    }
+  ],
+  "questions": [
+    {
+      "id": "uuid",
+      "survey_id": "uuid",
+      "title": "Question Title",
+      "type": "single|multi|text",
+      "required": true,
+      "char_limit": 0,
+      "sort_order": 0
+    }
+  ],
+  "options": [
+    {
+      "id": "uuid",
+      "question_id": "uuid",
+      "content": "Option Text",
+      "sort_order": 0
+    }
+  ],
+  "submissions": [
+    {
+      "id": "uuid",
+      "survey_id": "uuid",
+      "username": "domain\\user",
+      "submitted_at": "ISO8601"
+    }
+  ],
+  "answers": [
+    {
+      "id": "uuid",
+      "submission_id": "uuid",
+      "question_id": "uuid",
+      "value": "Answer Value"
+    }
+  ],
+  "admins": [
+    {
+      "id": "uuid",
+      "username": "domain\\admin",
+      "created_at": "ISO8601"
+    }
+  ]
+}
+```
+
+## Development Workflow
+
+### Verify Installation
 ```bash
-init.bat
+# Health check
+curl http://localhost/asp/api.ashx?path=health
+# Expected: {"ok":true,"data":"OK"}
+
+# User info
+curl http://localhost/asp/api.ashx?path=me
+# Expected: {"ok":true,"data":{"username":"domain\\user","is_admin":false}}
 ```
 
-### 启动后端
-```bash
-cd backend
-go run main.go
-```
+### Common Commands
 
-### 启动前端
-```bash
-# 纯静态文件，直接双击 index.html 或在浏览器打开
-# 如需本地服务器：
-npx serve frontend -p 8080
-```
+| Task | Command |
+|------|---------|
+| Install | `install.bat` (as Administrator) |
+| Restart IIS | `iisreset` |
+| Health check | `curl http://localhost/asp/api.ashx?path=health` |
+| View data | `type data\survey.json` |
+| Edit config | `notepad config.json` |
 
-## 数据库配置
+## Key Files
 
-- 默认路径：`data/survey.db`
-- 配置在 `config/config.yaml`
+| File | Purpose |
+|------|--------|
+| `asp/api.ashx` | Backend API - all HTTP handlers |
+| `web/index.html` | Frontend entry point |
+| `web/js/app.js` | Vue 3 app + router |
+| `web/js/components/survey-fill.js` | Survey fill wizard component |
+| `web/js/components/survey-designer.js` | Drag-drop survey designer |
+| `data/survey.json` | All data (database) |
+| `config.json` | Initial admin configuration |
+| `install.bat` | Offline installer script |
+| `web.config` | IIS configuration |
 
-## 关键配置
+## Important Notes
 
-### NTLM 认证 (开发模式)
-- 配置文件中的 `auth.mode: mock` 启用开发模式
-- 测试账号：`test_user` / `password123`
+1. **No build step**: Frontend is pure HTML/JS/CSS, no npm/yarn required
+2. **C# 5 compatible**: All backend code works with Windows Server default compiler
+3. **Offline deployment**: No external NuGet packages or CDN dependencies
+4. **Windows-only**: Requires IIS with Windows Authentication enabled
+5. **Atomic writes**: JSON file uses tmp+rename pattern for concurrent access safety
+6. **CSV export**: UTF-8 BOM encoding for Excel compatibility
 
-### 数据库连接
-```yaml
-database:
-  path: data/survey.db
-  max_conn: 5
-  timeout_ms: 3000
-```
+## Security Considerations
 
-## 构建部署
+- **Authentication**: Relies on IIS Windows Authentication (NTLM/Kerberos)
+- **Admin check**: Simple string comparison against `admins` array
+- **No CSRF**: GET/POST without CSRF tokens (acceptable for internal survey system)
+- **Input validation**: Basic validation in handlers (e.g., survey must be published to accept submissions)
 
-### Windows 单文件 exe
-```bash
-cd backend
-GOOS=windows GOARCH=amd64 go build -o survey.exe .
-```
+## Migration Notes
 
-### 注册为 Windows 服务
-```bash
-# 使用 NSSM (Non-Sucking Service Manager)
-nssm install survey.exe -ApplicationPath .
-nssm start survey
-```
-
-## 初始化
-
-运行 `init.bat` 创建项目结构并初始化 Go module：
-- 创建目录：backend, frontend, config, data, tests
-- 初始化 Go module: `go mod init survey`
-
-## 注意事项
-
-1. Go 需手动安装：`C:\go\go1.23.5.windows-amd64.msi`
-2. 启动前需设置 PATH：`set PATH=C:\go\bin;%PATH%`
-3. SQLite 写入需独占锁，避免并发写冲突
-4. 生产环境建议配置 `auth.mode: ntlm` 启用真实域认证
-5. 开发模式使用 `auth.mode: mock`，测试账号：test_user/password123
-
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
-
-This project is indexed by GitNexus as **survey** (799 symbols, 1929 relationships, 68 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
-
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
-
-## Always Do
-
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
-
-## Never Do
-
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
-
-## Resources
-
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/survey/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/survey/clusters` | All functional areas |
-| `gitnexus://repo/survey/processes` | All execution flows |
-| `gitnexus://repo/survey/process/{name}` | Step-by-step execution trace |
-
-## CLI
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-
-<!-- gitnexus:end -->
+- **Database**: Copy `data/survey.json` to new server
+- **Config**: Copy `config.json` with initial_admin settings
+- **IIS**: Run `install.bat` to recreate site and enable Windows auth
+- **Data integrity**: Always backup `survey.json` before operations
