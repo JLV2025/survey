@@ -1,0 +1,33 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - link "内部调查系统" [ref=e5] [cursor=pointer]:
+        - /url: "#"
+      - generic [ref=e6]:
+        - button "中" [ref=e7] [cursor=pointer]
+        - button "EN" [ref=e8] [cursor=pointer]
+    - generic [ref=e9]:
+      - text: testuser
+      - button "管理后台" [ref=e10] [cursor=pointer]
+  - main [ref=e11]:
+    - generic [ref=e14]:
+      - heading "2024Q2 员工满意度调查" [level=2] [ref=e15]
+      - paragraph [ref=e16]: 请如实填写，匿名调查
+      - generic [ref=e22]:
+        - generic [ref=e23]: 哪些方面需要改善？（多选）
+        - generic [ref=e38]:
+          - generic [ref=e39] [cursor=pointer]:
+            - checkbox "薪资福利" [ref=e40]
+            - text: 薪资福利
+          - generic [ref=e41] [cursor=pointer]:
+            - checkbox "工作环境" [ref=e42]
+            - text: 工作环境
+          - generic [ref=e43] [cursor=pointer]:
+            - checkbox "培训机会" [ref=e44]
+            - text: 培训机会
+          - generic [ref=e45] [cursor=pointer]:
+            - checkbox "团队氛围" [ref=e46]
+            - text: 团队氛围
+      - generic [ref=e35]:
+        - button "上一步" [ref=e36] [cursor=pointer]
+        - button "下一步" [active] [ref=e37] [cursor=pointer]

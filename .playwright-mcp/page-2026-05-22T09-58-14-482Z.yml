@@ -1,0 +1,23 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - img "Logo" [ref=e5]
+      - link "内部调查系统" [ref=e6] [cursor=pointer]:
+        - /url: "#"
+      - generic [ref=e7]:
+        - button "中" [ref=e8] [cursor=pointer]
+        - button "EN" [ref=e9] [cursor=pointer]
+    - generic [ref=e10]:
+      - text: admin
+      - button "管理后台" [ref=e11] [cursor=pointer]
+  - main [ref=e12]:
+    - generic [ref=e31]:
+      - generic [ref=e32]:
+        - heading "← 全部问卷" [level=2] [ref=e33]:
+          - link "←" [ref=e34] [cursor=pointer]:
+            - /url: "#"
+          - text: 全部问卷
+        - generic [ref=e35]:
+          - button "管理员" [ref=e36] [cursor=pointer]
+          - button "新建问卷" [ref=e37] [cursor=pointer]
+      - generic [ref=e38]: 加载中...

@@ -1,43 +1,8 @@
-# 二进制
-survey.exe
-*.exe
-survey.exe~
-
-# 数据文件
-data/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# 临时文件
-*.tmp
-*.log
-error.txt
-conversation-*.txt
-*-this-session-is-being-continued-*.txt
-
-# 截图
-*.png
-
-# 系统文件
+# OS
 Thumbs.db
-Desktop.ini
+*.suo
+*.user
+.vs/
 
-# Claude Code
-.claude/
-
-# OpenWolf
-.wolf/
-
-# Playwright
-.playwright-mcp/
-
-# 旧版本清理暂存
-_old_cleanup/
-
-# 根目录多余文件（web/ 下已有）
-/logo.gif
-/Logo2.gif
+# Temp files
+_iis_feature.log

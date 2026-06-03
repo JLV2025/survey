@@ -1,0 +1,33 @@
+{
+  "session_id": "session-2026-06-02-1424",
+  "started": "2026-06-02T06:24:31.546Z",
+  "files_read": {
+    "F:/projects/survey/setup-iis.ps1": {
+      "count": 1,
+      "tokens": 908,
+      "first_read": "2026-06-02T06:26:11.841Z"
+    }
+  },
+  "files_written": [
+    {
+      "file": "F:/projects/survey/setup-iis.ps1",
+      "action": "create",
+      "tokens": 974,
+      "at": "2026-06-02T06:26:52.830Z"
+    },
+    {
+      "file": "F:/projects/survey/setup-iis.ps1",
+      "action": "create",
+      "tokens": 974,
+      "at": "2026-06-02T06:32:17.742Z"
+    }
+  ],
+  "edit_counts": {
+    "setup-iis.ps1": 2
+  },
+  "anatomy_hits": 1,
+  "anatomy_misses": 0,
+  "repeated_reads_warned": 0,
+  "cerebrum_warnings": 0,
+  "stop_count": 43
+}

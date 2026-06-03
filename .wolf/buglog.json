@@ -1,0 +1,488 @@
+{
+  "version": 1,
+  "bugs": [
+    {
+      "id": "bug-001",
+      "timestamp": "2026-05-22T02:14:31.682Z",
+      "error_message": "Incorrect value in code",
+      "file": "internal/store/db.go",
+      "root_cause": "Had \"github.com/mattn/go-sqlite3\"",
+      "fix": "Changed to \"modernc.org/sqlite\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "go"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-22T02:14:31.682Z"
+    },
+    {
+      "id": "bug-002",
+      "timestamp": "2026-05-22T03:03:48.281Z",
+      "error_message": "Wrong reference: QuestionID should be ID",
+      "file": "internal/handler/submission.go",
+      "root_cause": "Used \"QuestionID\" instead of \"ID\"",
+      "fix": "Changed QuestionID → ID",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "go"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-22T03:03:48.281Z"
+    },
+    {
+      "id": "bug-003",
+      "timestamp": "2026-05-22T07:56:32.821Z",
+      "error_message": "Incorrect value in code",
+      "file": "config.json",
+      "root_cause": "Had \"data/survey.db\"",
+      "fix": "Changed to \"data/survey.json\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "json"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-22T07:56:32.821Z"
+    },
+    {
+      "id": "bug-004",
+      "timestamp": "2026-05-22T08:25:04.122Z",
+      "error_message": "Incorrect value in code",
+      "file": "internal/store/db.go",
+      "root_cause": "Had \"sync\"",
+      "fix": "Changed to \"strings\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "go"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-22T08:25:04.122Z"
+    },
+    {
+      "id": "bug-005",
+      "timestamp": "2026-05-22T08:25:37.468Z",
+      "error_message": "Incorrect value in code",
+      "file": "config.json",
+      "root_cause": "Had \"DEMO\\\\testuser\"",
+      "fix": "Changed to \"testuser\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "json"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-05-22T08:28:14.914Z"
+    },
+    {
+      "id": "bug-004",
+      "timestamp": "2026-05-22T08:26:00.000Z",
+      "error_message": "403 Forbidden when loading draft survey in designer: GET /api/surveys/{id}",
+      "file": "internal/store/db.go, internal/handler/admin.go, config.json",
+      "root_cause": "SeedAdmin and AddAdmin store raw username without DOMAIN\\ prefix normalization, but AuthMiddleware normalizes GetUsername. IsAdmin check fails because stored name has prefix but runtime username doesn't.",
+      "fix": "Add DOMAIN\\ prefix stripping to SeedAdmin() and AddAdmin handler. Update config.json to use normalized usernames.",
+      "tags": [
+        "auth",
+        "admin",
+        "403",
+        "normalization"
+      ],
+      "related_bugs": [
+        "bug-003"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-05-22T08:26:00.000Z"
+    },
+    {
+      "id": "bug-007",
+      "timestamp": "2026-05-22T08:53:08.211Z",
+      "error_message": "Incorrect value in code",
+      "file": "web/index.html",
+      "root_cause": "Had \" class=\"",
+      "fix": "Changed to \"/static/logo.gif\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "html"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-22T08:53:08.211Z"
+    },
+    {
+      "id": "bug-008",
+      "timestamp": "2026-05-22T08:57:00.098Z",
+      "error_message": "CSS fix: height",
+      "file": "web/css/style.css",
+      "root_cause": "height: 1.2em → var(--fs-lg)",
+      "fix": "Changed height: 1.2em → var(--fs-lg)",
+      "tags": [
+        "auto-detected",
+        "style-fix",
+        "css"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-05-22T08:57:18.371Z"
+    },
+    {
+      "id": "bug-009",
+      "timestamp": "2026-05-22T09:08:46.391Z",
+      "error_message": "CSS fix: height",
+      "file": "web/css/style.css",
+      "root_cause": "height: calc(var(--fs-lg) / 2) → var(--fs-lg)",
+      "fix": "Changed height: calc(var(--fs-lg) / 2) → var(--fs-lg)",
+      "tags": [
+        "auto-detected",
+        "style-fix",
+        "css"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-05-22T09:09:41.555Z"
+    },
+    {
+      "id": "bug-010",
+      "timestamp": "2026-05-22T09:15:29.804Z",
+      "error_message": "CSS fix: height",
+      "file": "web/css/style.css",
+      "root_cause": "height: calc(var(--fs-lg) * 1.5) → calc(var(--fs-lg) * 1.95)",
+      "fix": "Changed height: calc(var(--fs-lg) * 1.5) → calc(var(--fs-lg) * 1.95)",
+      "tags": [
+        "auto-detected",
+        "style-fix",
+        "css"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-22T09:15:29.804Z"
+    },
+    {
+      "id": "bug-011",
+      "timestamp": "2026-05-22T09:29:02.477Z",
+      "error_message": "CSS fix: background-image",
+      "file": "web/css/style.css",
+      "root_cause": "background-image: radial-gradient(circle, rgba(0,0,0,0.08) 1px, transparent 1px) → radial-gradient(circle, rgba(0,0,0,0.12) 1px, transparent 1px)",
+      "fix": "Changed background-image: radial-gradient(circle, rgba(0,0,0,0.08) 1px, transparent 1px) → radial-gradient(circle, rgba(0,0,0,0.12) 1px, transparent 1px)",
+      "tags": [
+        "auto-detected",
+        "style-fix",
+        "css"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-22T09:29:02.477Z"
+    },
+    {
+      "id": "bug-012",
+      "timestamp": "2026-05-22T09:31:34.125Z",
+      "error_message": "Incorrect value in code",
+      "file": "config.json",
+      "root_cause": "Had \"testuser\"",
+      "fix": "Changed to \"admin\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "json"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-22T09:31:34.125Z"
+    },
+    {
+      "id": "bug-013",
+      "timestamp": "2026-05-26T02:16:24.495Z",
+      "error_message": "Incorrect value in code",
+      "file": "offline-package/setup-iis.ps1",
+      "root_cause": "Had \"=== 3/5 Deploy web.config ===\"",
+      "fix": "Changed to \"=== 3/5 Unlock rewrite sections and deploy web.co",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "ps1"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-26T02:16:24.495Z"
+    },
+    {
+      "id": "bug-014",
+      "timestamp": "2026-05-26T04:58:58.241Z",
+      "error_message": "Significant refactor of ",
+      "file": "internal/middleware/auth.go",
+      "root_cause": "4 lines replaced/restructured",
+      "fix": "Rewrote 6→13 lines (4 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "go"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-26T04:58:58.241Z"
+    },
+    {
+      "id": "bug-015",
+      "timestamp": "2026-05-26T05:32:25.073Z",
+      "error_message": "Significant refactor of ",
+      "file": "main.go",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 4→8 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "go"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-26T05:32:25.073Z"
+    },
+    {
+      "id": "bug-016",
+      "timestamp": "2026-05-26T06:54:22.722Z",
+      "error_message": "Wrong return value",
+      "file": "internal/middleware/auth.go",
+      "root_cause": "Was returning: strings.HasPrefix(path, \"/api/admin/\") || path == ",
+      "fix": "Now returns: strings.HasPrefix(path, \"/api/admin/\")",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "go"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-26T06:54:22.722Z"
+    },
+    {
+      "id": "bug-017",
+      "timestamp": "2026-05-26T07:17:17.917Z",
+      "error_message": "Wrong return value",
+      "file": "internal/middleware/auth.go",
+      "root_cause": "Was returning: strings.HasPrefix(path, \"/api/admin/\")",
+      "fix": "Now returns: strings.HasPrefix(path, \"/api/admin/\") || path == ",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "go"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-26T07:17:17.917Z"
+    },
+    {
+      "id": "bug-018",
+      "timestamp": "2026-05-26T07:18:50.573Z",
+      "error_message": "Significant refactor of ",
+      "file": "web/js/app.js",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 11→7 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "js"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-26T07:18:50.573Z"
+    },
+    {
+      "id": "bug-019",
+      "timestamp": "2026-05-26T07:19:03.101Z",
+      "error_message": "Wrong condition in logic",
+      "file": "web/js/app.js",
+      "root_cause": "Condition was: if (this.isAdminRoute()",
+      "fix": "Changed to: if (!this.currentUser || !this.currentUser.username)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "js"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-26T07:19:03.101Z"
+    },
+    {
+      "id": "bug-020",
+      "timestamp": "2026-05-26T08:46:45.669Z",
+      "error_message": "Wrong return value",
+      "file": "internal/middleware/auth.go",
+      "root_cause": "Was returning: strings.HasPrefix(path, \"/api/admin/\") || path == ",
+      "fix": "Now returns: strings.HasPrefix(path, \"/api/admin/\")",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "go"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-26T08:46:45.669Z"
+    },
+    {
+      "id": "bug-021",
+      "timestamp": "2026-05-26T08:52:13.356Z",
+      "error_message": "Wrong return value",
+      "file": "internal/middleware/auth.go",
+      "root_cause": "Was returning: strings.HasPrefix(path, \"/api/admin/\")",
+      "fix": "Now returns: strings.HasPrefix(path, \"/api/admin/\") || path == ",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "go"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-26T08:52:13.356Z"
+    },
+    {
+      "id": "bug-022",
+      "timestamp": "2026-05-26T09:14:45.678Z",
+      "error_message": "Wrong return value",
+      "file": "internal/middleware/auth.go",
+      "root_cause": "Was returning: strings.HasPrefix(path, \"/api/admin/\") || path == ",
+      "fix": "Now returns: strings.HasPrefix(path, \"/api/admin/\")",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "go"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-26T09:14:45.678Z"
+    },
+    {
+      "id": "bug-023",
+      "timestamp": "2026-05-26T09:16:38.238Z",
+      "error_message": "Significant refactor of ",
+      "file": "web/js/api.js",
+      "root_cause": "4 lines replaced/restructured",
+      "fix": "Rewrote 34→45 lines (4 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "js"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-26T09:16:38.238Z"
+    },
+    {
+      "id": "bug-024",
+      "timestamp": "2026-05-26T09:17:04.997Z",
+      "error_message": "Significant refactor of ",
+      "file": "web/js/app.js",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 7→16 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "js"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-26T09:17:04.997Z"
+    },
+    {
+      "id": "bug-025",
+      "timestamp": "2026-06-01T05:49:51.546Z",
+      "error_message": "Incorrect value in code",
+      "file": "web/js/components/admin-dashboard.js",
+      "root_cause": "Had \"copyURL(s)\"",
+      "fix": "Changed to \"goFill(s.id)\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "js"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-06-01T05:51:23.716Z"
+    },
+    {
+      "id": "bug-026",
+      "timestamp": "2026-06-01T05:50:50.566Z",
+      "error_message": "Incorrect value in code",
+      "file": "web/js/i18n.js",
+      "root_cause": "Had 'Confirm'",
+      "fix": "Changed to 'Fill'",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "js"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-06-01T05:52:44.842Z"
+    },
+    {
+      "id": "bug-027",
+      "timestamp": "2026-06-01T07:42:19.182Z",
+      "error_message": "Missing guard clause",
+      "file": "web/js/components/survey-fill.js",
+      "root_cause": "No early return/throw for edge case: checkRes.ok && checkRes.data && checkRes.data.submitted",
+      "fix": "Added guard clause: if (checkRes.ok && checkRes.data && checkRes)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "js"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-06-01T07:42:35.741Z"
+    },
+    {
+      "id": "bug-028",
+      "timestamp": "2026-06-02T05:02:50.688Z",
+      "error_message": "Missing error handling in function",
+      "file": "web/js/api.js",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block | Also: headers: { 'Content-Type': 'application/json' },; if (!res.ok) { | Also: const res = await fetch(BASE + path, { method: 'DELETE' });; if (!res.ok) { | Also: return navigator.clipboard.writeText(text).catch(() => {});; const ok = document.execCommand('copy');",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "js"
+      ],
+      "related_bugs": [],
+      "occurrences": 5,
+      "last_seen": "2026-06-02T05:05:30.194Z"
+    },
+    {
+      "id": "bug-029",
+      "timestamp": "2026-06-02T05:05:09.023Z",
+      "error_message": "Missing guard clause",
+      "file": "web/js/api.js",
+      "root_cause": "No early return/throw for edge case: !r.ok",
+      "fix": "Added guard clause: if (!r.ok)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "js"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-02T05:05:09.023Z"
+    },
+    {
+      "id": "bug-030",
+      "timestamp": "2026-06-02T05:05:50.703Z",
+      "error_message": "Significant refactor of ",
+      "file": "web/js/app.js",
+      "root_cause": "8 lines replaced/restructured",
+      "fix": "Rewrote 35→25 lines (8 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "js"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-06-02T05:05:50.703Z"
+    }
+  ]
+}

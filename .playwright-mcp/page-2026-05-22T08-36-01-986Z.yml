@@ -1,0 +1,33 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - link "内部调查系统" [ref=e5] [cursor=pointer]:
+        - /url: "#"
+      - generic [ref=e6]:
+        - button "中" [ref=e7] [cursor=pointer]
+        - button "EN" [ref=e8] [cursor=pointer]
+    - generic [ref=e9]: testuser
+  - main [ref=e10]:
+    - generic [ref=e161]:
+      - generic [ref=e162]:
+        - heading "← 全部问卷" [level=2] [ref=e163]:
+          - link "←" [ref=e164] [cursor=pointer]:
+            - /url: "#"
+          - text: 全部问卷
+        - generic [ref=e165]:
+          - button "管理员" [ref=e166] [cursor=pointer]
+          - button "新建问卷" [ref=e167] [cursor=pointer]
+      - generic [ref=e169]:
+        - generic [ref=e170]:
+          - generic [ref=e171]:
+            - text: 2024Q2 员工满意度调查
+            - generic [ref=e172]: 草稿
+          - generic [ref=e173]:
+            - button "编辑" [ref=e174] [cursor=pointer]
+            - button "设计" [ref=e175] [cursor=pointer]
+            - button "统计" [ref=e176] [cursor=pointer]
+            - button "提交记录" [ref=e177] [cursor=pointer]
+            - button "导出 Excel" [ref=e178] [cursor=pointer]
+            - button "复制链接" [ref=e179] [cursor=pointer]
+            - button "删除" [ref=e180] [cursor=pointer]
+        - generic [ref=e181]: 请根据实际情况如实填写，匿名调查

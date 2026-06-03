@@ -1,0 +1,7 @@
+{
+  "port": 8080,
+  "auth_mode": "ntlm",
+  "mock_username": "",
+  "initial_admin": "",
+  "db_path": "data/survey.json"
+}

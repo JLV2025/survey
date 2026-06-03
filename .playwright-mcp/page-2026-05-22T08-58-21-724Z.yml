@@ -1,0 +1,36 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - link "内部调查系统" [ref=e5] [cursor=pointer]:
+        - /url: "#"
+      - generic [ref=e6]:
+        - button "中" [ref=e7] [cursor=pointer]
+        - button "EN" [ref=e8] [cursor=pointer]
+    - generic [ref=e9]:
+      - text: testuser
+      - button "管理后台" [ref=e10] [cursor=pointer]
+  - main [ref=e11]:
+    - generic [ref=e14]:
+      - heading "2024Q2 员工满意度调查" [level=2] [ref=e15]
+      - paragraph [ref=e16]: 请如实填写，匿名调查
+      - generic [ref=e22]:
+        - generic [ref=e23]: 你对目前的工作内容满意吗？ *
+        - generic [ref=e24]:
+          - generic [ref=e25] [cursor=pointer]:
+            - radio "非常满意" [ref=e26]
+            - text: 非常满意
+          - generic [ref=e27] [cursor=pointer]:
+            - radio "满意" [checked] [active] [ref=e28]
+            - text: 满意
+          - generic [ref=e29] [cursor=pointer]:
+            - radio "一般" [ref=e30]
+            - text: 一般
+          - generic [ref=e31] [cursor=pointer]:
+            - radio "不满意" [ref=e32]
+            - text: 不满意
+          - generic [ref=e33] [cursor=pointer]:
+            - radio "非常不满意" [ref=e34]
+            - text: 非常不满意
+      - generic [ref=e35]:
+        - button "上一步" [disabled] [ref=e36]
+        - button "下一步" [ref=e37] [cursor=pointer]
