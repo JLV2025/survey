@@ -34,7 +34,7 @@ window.__surveyStats = {
 
       this.stats.questions.forEach((q, i) => {
         if (q.type !== 'single' && q.type !== 'multiple') return;
-        if (!q.option_counts || !q.option_counts.length) return;
+        if (!q.options || !q.options.length) return;
 
         const dom = document.getElementById('chart_' + i);
         if (!dom) return;
@@ -57,7 +57,7 @@ window.__surveyStats = {
             emphasis: {
               label: { show: true, fontSize: 20, fontWeight: 'bold' },
             },
-            data: q.option_counts.map(o => ({
+            data: q.options.map(o => ({
               name: o.content,
               value: o.count,
             })),
@@ -84,20 +84,20 @@ window.__surveyStats = {
     <div v-else-if="stats">
       <div class="stats-header">
         <h2 style="font-size:var(--fs-title)">{{ stats.survey_title }}</h2>
-        <p class="stats-total">{{ t('total_submissions') }}: {{ stats.total_submissions }}</p>
+        <p class="stats-total">{{ t('total_submissions') }}: {{ stats.total }}</p>
       </div>
 
-      <div v-if="stats.total_submissions === 0" class="text-center">
+      <div v-if="stats.total === 0" class="text-center">
         <div class="alert alert-info">{{ t('no_data') }}</div>
       </div>
 
       <div v-else>
-        <div v-for="(q, i) in stats.questions" :key="q.question_id" class="card">
+        <div v-for="(q, i) in stats.questions" :key="q.id" class="card">
           <div class="question-title">{{ q.title }}</div>
 
           <!-- 选择题：饼图 -->
           <div v-if="q.type === 'single' || q.type === 'multiple'">
-            <div v-if="q.option_counts && q.option_counts.length" class="chart-container" :id="'chart_' + i"></div>
+            <div v-if="q.options && q.options.length" class="chart-container" :id="'chart_' + i"></div>
             <div v-else class="alert alert-info">{{ t('no_data') }}</div>
           </div>
 

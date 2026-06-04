@@ -4,6 +4,7 @@ const SurveyFill = window.__surveyFill;
 const SurveyStats = window.__surveyStats;
 const AdminDashboard = window.__adminDashboard;
 const AdminSurveyList = window.__adminSurveyList;
+const AdminUsers = window.__adminUsers;
 const SurveyDesigner = window.__surveyDesigner;
 
 const app = Vue.createApp({
@@ -23,12 +24,13 @@ const app = Vue.createApp({
       if (this.route.startsWith('stats/')) return 'survey-stats';
       if (this.route === 'admin' || this.route === 'admin/') return 'admin-dashboard';
       if (this.route.startsWith('admin/design/')) return 'survey-designer';
+      if (this.route.startsWith('admin/users')) return 'admin-users';
       if (this.route.startsWith('admin/surveys')) return 'admin-survey-list';
       if (this.route.startsWith('admin/submissions/')) return 'admin-submissions';
       if (this.route.startsWith('admin/results/')) return 'survey-stats';
-      // 默认：如果是问卷ID就去填写页
+      // 默认：问卷ID去填写页，无路由时管理员看概览、普通用户看空状态
       if (this.route) return 'survey-fill';
-      return 'admin-dashboard';
+      return this.currentUser && this.currentUser.is_admin ? 'admin-dashboard' : 'survey-fill';
     },
     routeKey() {
       return this.route + (this.lang || '');
@@ -58,17 +60,18 @@ const app = Vue.createApp({
       if (parts[0] === 'admin' && parts[1] === 'design' && parts[2]) this.routeParams.id = parts[2];
       if (parts[0] === 'admin' && parts[1] === 'submissions' && parts[2]) this.routeParams.id = parts[2];
       if (parts[0] === 'admin' && parts[1] === 'results' && parts[2]) this.routeParams.id = parts[2];
+      if (parts[0] === 'admin' && parts[1] === 'users') { /* no params */ }
       if (parts.length === 1) this.routeParams.id = parts[0];
       window.location.hash = target.replace(/^#/, '#/');
     },
 
     goHome() {
-      this.navigate('admin');
+      if (this.currentUser && this.currentUser.is_admin) this.navigate('admin');
+      else this.navigate('');
     },
 
     isAdminRoute() {
-      const h = window.location.hash.replace(/^#\/?/, '');
-      return !h || h.startsWith('admin');
+      return !this.route || this.route.startsWith('admin');
     },
 
     parseHash() {
@@ -83,9 +86,11 @@ const app = Vue.createApp({
         if (parts[0] === 'admin' && parts[1] === 'submissions' && parts[2]) this.routeParams.id = parts[2];
         if (parts[0] === 'admin' && parts[1] === 'results' && parts[2]) this.routeParams.id = parts[2];
         if (parts[0] === 'admin' && parts[1] === 'surveys') { /* rien */ }
+        if (parts[0] === 'admin' && parts[1] === 'users') { /* no params */ }
         if (parts.length === 1) this.routeParams.id = parts[0];
       } else {
-        this.navigate('admin');
+        if (this.currentUser && this.currentUser.is_admin) this.navigate('admin');
+        else this.navigate('');
       }
     },
   },
@@ -122,6 +127,7 @@ app.component('survey-fill', SurveyFill);
 app.component('survey-stats', SurveyStats);
 app.component('admin-dashboard', AdminDashboard);
 app.component('admin-survey-list', AdminSurveyList);
+app.component('admin-users', AdminUsers);
 app.component('survey-designer', SurveyDesigner);
 
 app.mount('#app');

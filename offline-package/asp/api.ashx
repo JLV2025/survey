@@ -40,9 +40,9 @@ public class SurveyApi : IHttpHandler {
             if (method == "DELETE" && n == 3 && seg[1] == "surveys") { HandleDeleteAdminSurvey(ctx, seg[2]); return; }
             if (method == "PUT" && n == 4 && seg[1] == "surveys" && seg[3] == "status") { HandleUpdateSurveyStatus(ctx, seg[2]); return; }
             if (method == "POST" && n == 4 && seg[1] == "surveys" && seg[3] == "questions") { HandleCreateQuestion(ctx, seg[2]); return; }
+            if (method == "PUT" && n == 5 && seg[1] == "surveys" && seg[3] == "questions" && seg[4] == "reorder") { HandleReorderQuestions(ctx, seg[2]); return; }
             if (method == "PUT" && n == 5 && seg[1] == "surveys" && seg[3] == "questions") { HandleUpdateQuestion(ctx, seg[2], seg[4]); return; }
             if (method == "DELETE" && n == 5 && seg[1] == "surveys" && seg[3] == "questions") { HandleDeleteQuestion(ctx, seg[2], seg[4]); return; }
-            if (method == "PUT" && n == 5 && seg[1] == "surveys" && seg[3] == "questions" && seg[4] == "reorder") { HandleReorderQuestions(ctx, seg[2]); return; }
             if (method == "GET" && n == 4 && seg[1] == "surveys" && seg[3] == "submissions") { HandleListSubmissions(ctx, seg[2]); return; }
             if (method == "GET" && n == 4 && seg[1] == "surveys" && seg[3] == "export") { HandleExportCSV(ctx, seg[2]); return; }
             if (method == "GET" && n == 2 && seg[1] == "users") { HandleListAdmins(ctx); return; }
@@ -272,6 +272,16 @@ public class SurveyApi : IHttpHandler {
     string NewUUID() { return Guid.NewGuid().ToString().ToLower(); }
     string NowISO() { return DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss") + "+08:00"; }
 
+    // ===== Helpers =====
+    bool IsPublishedSurvey(object[] surveys, string surveyId) {
+        foreach (var s in surveys) {
+            var sd = (Dictionary<string, object>)s;
+            if (Convert.ToString(sd["id"]) == surveyId)
+                return Convert.ToString(sd["status"]) == "published";
+        }
+        return false;
+    }
+
     // ===== Handlers =====
     void HandleMe(HttpContext ctx) {
         WriteOk(ctx, new Dictionary<string, object>{
@@ -372,7 +382,7 @@ public class SurveyApi : IHttpHandler {
                 { "id", NewUUID() },
                 { "submission_id", subId },
                 { "question_id", SafeStr(ad, "question_id", "") },
-                { "value", ad.ContainsKey("value") ? ad["value"] : "" }
+                { "value", ad.ContainsKey("value") ? ad["value"] : (ad.ContainsKey("content") ? ad["content"] : "") }
             });
         }
         var allAnswers = new List<object>((object[])db["answers"]);
@@ -395,6 +405,8 @@ public class SurveyApi : IHttpHandler {
             if (Convert.ToString(sd["id"]) == id) { found = sd; break; }
         }
         if (found == null) { WriteErr(ctx, "survey not found"); return; }
+        var foundSurvey = (Dictionary<string, object>)found;
+        if (Convert.ToString(foundSurvey["status"]) != "published") { WriteErr(ctx, "survey not found"); return; }
         int total = 0;
         foreach (var sub in submissions) {
             if (Convert.ToString(((Dictionary<string, object>)sub)["survey_id"]) == id) total++;
@@ -413,6 +425,7 @@ public class SurveyApi : IHttpHandler {
                         { "count", 0 }
                     });
             }
+            var textAnswers = new List<string>();
             if (olist.Count > 0) {
                 foreach (var a in answers) {
                     var ad = (Dictionary<string, object>)a;
@@ -427,23 +440,37 @@ public class SurveyApi : IHttpHandler {
                     }
                     if (!belongs) continue;
                     string val = Convert.ToString(ad["value"]);
-                    foreach (var o in olist) {
-                        var od = (Dictionary<string, object>)o;
-                        if (Convert.ToString(od["id"]) == val) {
-                            od["count"] = Convert.ToInt32(od["count"]) + 1;
-                            break;
+                    if (Convert.ToString(qd["type"]) == "text" || Convert.ToString(qd["type"]) == "textarea") {
+                        if (!string.IsNullOrEmpty(val)) textAnswers.Add(val);
+                    } else {
+                        foreach (var token in val.Split(',')) {
+                            var tid = token.Trim();
+                            if (string.IsNullOrEmpty(tid)) continue;
+                            foreach (var o in olist) {
+                                var od = (Dictionary<string, object>)o;
+                                if (Convert.ToString(od["id"]) == tid) {
+                                    od["count"] = Convert.ToInt32(od["count"]) + 1;
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
             }
-            qlist.Add(new Dictionary<string, object> {
+            var qEntry = new Dictionary<string, object> {
                 { "id", SafeStr(qd, "id", "") },
                 { "title", SafeStr(qd, "title", "") },
-                { "type", SafeStr(qd, "type", "") },
-                { "options", olist.ToArray() }
-            });
+                { "type", SafeStr(qd, "type", "") }
+            };
+            if (olist.Count > 0) qEntry["options"] = olist.ToArray();
+            if (textAnswers.Count > 0) qEntry["text_answers"] = textAnswers.ToArray();
+            qlist.Add(qEntry);
         }
-        WriteOk(ctx, new Dictionary<string, object>{ { "total", total }, { "questions", qlist.ToArray() } });
+        WriteOk(ctx, new Dictionary<string, object>{
+            { "total", total },
+            { "survey_title", SafeStr((Dictionary<string, object>)found, "title", "") },
+            { "questions", qlist.ToArray() }
+        });
     }
     // ===== Admin - Survey CRUD =====
     void HandleListAdminSurveys(HttpContext ctx) {
@@ -610,6 +637,8 @@ public class SurveyApi : IHttpHandler {
         if (string.IsNullOrEmpty(body)) { WriteErr(ctx, "empty body"); return; }
         var input = JsonParse(body);
         var db = ReadDB();
+        object[] surveys = (object[])db["surveys"];
+        if (IsPublishedSurvey(surveys, surveyId)) { WriteErr(ctx, "survey is published, cannot modify questions"); return; }
         object[] questions = (object[])db["questions"];
         int maxOrder = 0;
         foreach (var q in questions) {
@@ -625,8 +654,8 @@ public class SurveyApi : IHttpHandler {
             { "survey_id", surveyId },
             { "title", SafeStr(input, "title", "New Question") },
             { "type", SafeStr(input, "type", "single") },
-            { "required", true },
-            { "char_limit", 0 },
+            { "required", input.ContainsKey("required") ? Convert.ToBoolean(input["required"]) : true },
+            { "char_limit", input.ContainsKey("char_limit") ? Convert.ToInt32(input["char_limit"]) : 0 },
             { "sort_order", maxOrder + 1 }
         };
         var list = new List<object>(questions) { entry };
@@ -654,6 +683,8 @@ public class SurveyApi : IHttpHandler {
         if (string.IsNullOrEmpty(body)) { WriteErr(ctx, "empty body"); return; }
         var input = JsonParse(body);
         var db = ReadDB();
+        object[] surveys = (object[])db["surveys"];
+        if (IsPublishedSurvey(surveys, surveyId)) { WriteErr(ctx, "survey is published, cannot modify questions"); return; }
         object[] questions = (object[])db["questions"];
         bool found = false;
         for (int i = 0; i < questions.Length; i++) {
@@ -661,6 +692,8 @@ public class SurveyApi : IHttpHandler {
             if (Convert.ToString(qd["id"]) == qid && Convert.ToString(qd["survey_id"]) == surveyId) {
                 if (input.ContainsKey("title")) qd["title"] = SafeStr(input, "title", "");
                 if (input.ContainsKey("type")) qd["type"] = SafeStr(input, "type", "");
+                if (input.ContainsKey("required")) qd["required"] = Convert.ToBoolean(input["required"]);
+                if (input.ContainsKey("char_limit")) qd["char_limit"] = Convert.ToInt32(input["char_limit"]);
                 if (input.ContainsKey("sort_order")) qd["sort_order"] = Convert.ToInt32(input["sort_order"]);
                 questions[i] = qd;
                 found = true; break;
@@ -692,6 +725,8 @@ public class SurveyApi : IHttpHandler {
 
     void HandleDeleteQuestion(HttpContext ctx, string surveyId, string qid) {
         var db = ReadDB();
+        object[] surveys = (object[])db["surveys"];
+        if (IsPublishedSurvey(surveys, surveyId)) { WriteErr(ctx, "survey is published, cannot modify questions"); return; }
         object[] questions = (object[])db["questions"];
         var list = new List<object>();
         bool found = false;
@@ -720,6 +755,8 @@ public class SurveyApi : IHttpHandler {
         }
         var idsArr = (object[])input["ids"];
         var db = ReadDB();
+        object[] surveys = (object[])db["surveys"];
+        if (IsPublishedSurvey(surveys, surveyId)) { WriteErr(ctx, "survey is published, cannot modify questions"); return; }
         object[] questions = (object[])db["questions"];
         var order = new Dictionary<string, int>();
         for (int i = 0; i < idsArr.Length; i++) order[Convert.ToString(idsArr[i])] = i;
@@ -757,7 +794,7 @@ public class SurveyApi : IHttpHandler {
                     ansList.Add(new Dictionary<string, object> {
                         { "question_id", SafeStr(ad, "question_id", "") },
                         { "question_title", qTitle },
-                        { "value", ad.ContainsKey("value") ? ad["value"] : "" }
+                        { "value", ad.ContainsKey("value") ? ad["value"] : (ad.ContainsKey("content") ? ad["content"] : "") }
                     });
                 }
             }

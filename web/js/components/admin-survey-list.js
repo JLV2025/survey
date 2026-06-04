@@ -14,9 +14,6 @@ window.__adminSurveyList = {
       formDeadline: '',
       showSubmissions: null,
       submissions: [],
-      showAdmins: false,
-      adminList: [],
-      newAdminName: '',
     };
   },
   methods: {
@@ -64,7 +61,8 @@ window.__adminSurveyList = {
       };
       try {
         if (this.editSurvey) {
-          await updateSurvey(this.editSurvey.id, data);
+          const r = await updateSurvey(this.editSurvey.id, data);
+          if (!r.ok) { alert(r.message || this.t('save_failed') || '保存失败'); return; }
         } else {
           const res = await createSurvey(data);
           if (res.ok && res.data) {
@@ -72,6 +70,7 @@ window.__adminSurveyList = {
             this.$emit('navigate', 'admin/design/' + res.data.id);
             return;
           }
+          if (!res.ok) { alert(res.message || this.t('save_failed') || '保存失败'); return; }
         }
       } catch (e) {
         console.error('保存问卷失败', e);
@@ -83,7 +82,8 @@ window.__adminSurveyList = {
     async deleteOne(s) {
       if (!confirm(this.t('confirm_delete'))) return;
       try {
-        await deleteSurvey(s.id);
+        const r = await deleteSurvey(s.id);
+        if (!r.ok) { alert(r.message || this.t('delete_failed') || '删除失败'); return; }
         await this.loadSurveys();
       } catch (e) {
         console.error('删除问卷失败', e);
@@ -117,35 +117,6 @@ window.__adminSurveyList = {
       const url = getSurveyURL(survey.id);
       copyToClipboard(url); alert(this.t('copied'));
     },
-    async loadAdmins() {
-      this.showAdmins = true;
-      try {
-        const res = await fetchAdmins();
-        if (res.ok) this.adminList = res.data || [];
-      } catch (e) {
-        console.error('加载管理员列表失败', e);
-      }
-    },
-    async addAdminUser() {
-      if (!this.newAdminName.trim()) return;
-      try {
-        await addAdmin(this.newAdminName);
-        this.newAdminName = '';
-        await this.loadAdmins();
-      } catch (e) {
-        console.error('添加管理员失败', e);
-        alert(this.t('add_admin_failed') || '添加管理员失败，请检查权限');
-      }
-    },
-    async removeAdminUser(id) {
-      try {
-        await removeAdmin(id);
-        await this.loadAdmins();
-      } catch (e) {
-        console.error('删除管理员失败', e);
-        alert(this.t('remove_admin_failed') || '删除管理员失败，请检查权限');
-      }
-    },
   },
   mounted() { this.loadSurveys(); },
   template: `
@@ -156,24 +127,7 @@ window.__adminSurveyList = {
         {{ t('all_surveys') }}
       </h2>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-sm btn-outline" @click="loadAdmins">{{ t('admin_users') }}</button>
         <button class="btn" @click="openCreate">{{ t('create') }}</button>
-      </div>
-    </div>
-
-    <!-- 管理员列表 -->
-    <div v-if="showAdmins" class="card mb-4">
-      <div class="flex-between mb-4">
-        <h3>{{ t('admin_users') }}</h3>
-        <button class="btn btn-sm btn-outline" @click="showAdmins=false">{{ t('cancel') }}</button>
-      </div>
-      <div v-for="a in adminList" :key="a.id" class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--color-border)">
-        <span>{{ a.username }}</span>
-        <button class="btn btn-sm btn-danger" @click="removeAdminUser(a.id)">{{ t('delete') }}</button>
-      </div>
-      <div class="flex mt-4 gap-2">
-        <input class="input" v-model="newAdminName" :placeholder="t('admin_username')" style="flex:1" />
-        <button class="btn btn-sm" @click="addAdminUser">{{ t('add_admin') }}</button>
       </div>
     </div>
 

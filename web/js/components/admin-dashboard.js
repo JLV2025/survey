@@ -24,11 +24,12 @@ window.__adminDashboard = {
     goResults(id) { this.$emit('navigate', 'admin/results/' + id); },
     goCreate() { this.$emit('navigate', 'admin/surveys'); },
     goFill(id) { this.$emit('navigate', 'fill/' + id); },
-    goAdminUsers() { this.$emit('navigate', 'admin/surveys'); },
+    goAdminUsers() { this.$emit('navigate', 'admin/users'); },
     async toggleStatus(survey) {
       const newStatus = survey.status === 'published' ? 'closed' : 'published';
       try {
-        await updateSurveyStatus(survey.id, newStatus);
+        const r = await updateSurveyStatus(survey.id, newStatus);
+        if (!r.ok) { alert(r.message || this.t('operation_failed') || '操作失败'); return; }
         await this.load();
       } catch (e) {
         console.error('切换状态失败', e);
@@ -38,7 +39,8 @@ window.__adminDashboard = {
     async deleteOne(survey) {
       if (!confirm(this.t('confirm_delete'))) return;
       try {
-        await deleteSurvey(survey.id);
+        const r = await deleteSurvey(survey.id);
+        if (!r.ok) { alert(r.message || this.t('delete_failed') || '删除失败'); return; }
         await this.load();
       } catch (e) {
         console.error('删除问卷失败', e);
@@ -54,7 +56,7 @@ window.__adminDashboard = {
   template: `
   <div>
     <div class="flex-between mb-4">
-      <h2 style="font-size:var(--fs-title)">{{ t('all_surveys') }}</h2>
+      <h2 style="font-size:var(--fs-title)">{{ t('dashboard') }}</h2>
       <div style="display:flex;gap:8px">
         <button class="btn btn-sm btn-outline" @click="goAdminUsers">{{ t('admin_users') }}</button>
         <button class="btn" @click="goCreate">{{ t('create') }}</button>
@@ -81,7 +83,7 @@ window.__adminDashboard = {
             <button class="btn btn-sm btn-outline" @click="goDesign(s.id)">{{ t('design') }}</button>
             <button class="btn btn-sm btn-outline" @click="goResults(s.id)">{{ t('results') }}</button>
             <button class="btn btn-sm btn-outline" @click="goSubmissions(s.id)">{{ t('submissions_list') }}</button>
-            <button class="btn btn-sm btn-outline" @click="toggleStatus(s)">
+            <button class="btn btn-sm" @click="toggleStatus(s)" style="background:var(--color-primary);color:#fff;font-weight:600">
               {{ s.status === 'published' ? t('close') : t('publish') }}
             </button>
             <button class="btn btn-sm btn-danger" @click="deleteOne(s)">{{ t('delete') }}</button>

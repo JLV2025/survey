@@ -2,6 +2,9 @@
 
 window.__surveyDesigner = {
   props: ['routeParams'],
+  computed: {
+    isPublished() { return this.survey && this.survey.status === 'published'; },
+  },
   data() {
     return {
       survey: null,
@@ -46,12 +49,14 @@ window.__surveyDesigner = {
     async onDrop(e) {
         e.preventDefault();
         this.dragOver = false;
+        if (this.isPublished) return;
         const type = e.dataTransfer.getData('text/plain');
         if (!type) return;
         await this.createQuestionOfType(type);
       },
 
       async createQuestionOfType(type) {
+        if (this.isPublished) return;
         const typeNames = { single: '单选题', multiple: '多选题', text: '填空题', textarea: '多行文本' };
         const data = {
           type: type,
@@ -79,6 +84,7 @@ window.__surveyDesigner = {
 
     // 画布内拖拽排序
     onCanvasDragStart(e, idx) {
+      if (this.isPublished) return;
       e.dataTransfer.setData('text/plain', 'reorder');
       e.dataTransfer.setData('index', String(idx));
       e.dataTransfer.effectAllowed = 'move';
@@ -107,25 +113,28 @@ window.__surveyDesigner = {
     },
     async onQuestionDrop(e, toIdx) {
       e.preventDefault();
+      if (this.isPublished) return;
       const action = e.dataTransfer.getData('text/plain');
       if (action !== 'reorder') return;
 
       const fromIdx = parseInt(e.dataTransfer.getData('index'));
       if (isNaN(fromIdx) || fromIdx === toIdx) return;
 
-      const ids = [];
+      const original = [...this.questions];
       const reordered = [...this.questions];
       const [moved] = reordered.splice(fromIdx, 1);
       reordered.splice(toIdx, 0, moved);
-      reordered.forEach(q => ids.push(q.id));
+      const ids = reordered.map(q => q.id);
 
       // 乐观更新
       this.questions = reordered;
-      await reorderQuestions(this.routeParams.id, ids);
+      const r = await reorderQuestions(this.routeParams.id, ids);
+      if (!r || !r.ok) this.questions = original;
     },
 
     // 题目编辑
     editQuestion(q) {
+      if (this.isPublished) return;
       this.editingQid = q.id;
       this.editForm = {
         title: q.title,
@@ -143,7 +152,9 @@ window.__surveyDesigner = {
     removeOption(idx) { this.editOptions.splice(idx, 1); },
 
     async saveQuestion() {
+      if (this.isPublished || this._saving) return;
       if (!this.editForm.title.trim()) { alert(this.t('question_empty')); return; }
+      this._saving = true;
       const data = {
         type: this.editForm.type,
         title: this.editForm.title,
@@ -155,16 +166,31 @@ window.__surveyDesigner = {
           sort_order: i,
         })),
       };
-      await updateQuestion(this.routeParams.id, this.editingQid, data);
-      this.editingQid = null;
-      await this.loadSurvey();
+      try {
+        const r = await updateQuestion(this.routeParams.id, this.editingQid, data);
+        if (!r.ok) { alert(r.message || '保存题目失败'); return; }
+        this.editingQid = null;
+        await this.loadSurvey();
+      } catch (e) {
+        console.error('保存题目失败', e);
+        alert('保存题目失败，请重试');
+      } finally {
+        this._saving = false;
+      }
     },
 
     async deleteQuestion(q) {
+      if (this.isPublished) return;
       if (!confirm(this.t('confirm_delete'))) return;
-      await deleteQuestion(this.routeParams.id, q.id);
-      if (this.editingQid === q.id) this.editingQid = null;
-      await this.loadSurvey();
+      try {
+        const r = await deleteQuestion(this.routeParams.id, q.id);
+        if (!r.ok) { alert(r.message || '删除题目失败'); return; }
+        if (this.editingQid === q.id) this.editingQid = null;
+        await this.loadSurvey();
+      } catch (e) {
+        console.error('删除题目失败', e);
+        alert('删除题目失败，请重试');
+      }
     },
 
     // 预览
@@ -201,11 +227,16 @@ window.__surveyDesigner = {
         </span>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-sm btn-outline" @click="showAddDialog=true">{{ t('add_question') }}</button>
+        <button class="btn btn-sm btn-outline" @click="showAddDialog=true" :disabled="isPublished">{{ t('add_question') }}</button>
         <button class="btn btn-sm btn-outline" @click="openPreview" :disabled="!questions.length">
           {{ t('preview') }}
         </button>
       </div>
+    </div>
+
+    <!-- 已发布锁定警告 -->
+    <div v-if="isPublished" class="alert alert-warn mb-4" style="display:flex;align-items:center;justify-content:space-between">
+      <span>⚠ 问卷已发布，题目不可编辑。如需修改题目请先关闭问卷。</span>
     </div>
 
     <!-- 添加题目对话框 -->
@@ -266,7 +297,7 @@ window.__surveyDesigner = {
     <!-- 设计模式 -->
     <div v-if="!previewMode" class="designer-layout">
       <!-- 左侧题型面板 -->
-      <div class="type-panel">
+      <div v-if="!isPublished" class="type-panel">
         <div class="card" style="padding:12px">
           <div style="font-weight:600;margin-bottom:8px">{{ t('question_type') }}</div>
           <div class="type-item" draggable="true"
@@ -304,7 +335,7 @@ window.__surveyDesigner = {
           <div v-for="(q, idx) in questions" :key="q.id"
             class="designer-question"
             :class="{ 'drag-over': dragIdx === idx }"
-            draggable="true"
+            :draggable="!isPublished"
             @dragstart="onCanvasDragStart($event, idx)"
             @dragend="onCanvasDragEnd"
             @dragover="onQuestionDragOver($event, idx)"
@@ -316,7 +347,7 @@ window.__surveyDesigner = {
                 <span class="dq-type">{{ typeLabel(q.type) }}</span>
                 <span v-if="q.required" style="color:var(--color-danger);font-size:13px;margin-left:4px">*</span>
               </div>
-              <div class="dq-actions">
+              <div v-if="!isPublished" class="dq-actions">
                 <button @click="editQuestion(q)" :title="t('edit')">✎</button>
                 <button @click="deleteQuestion(q)" :title="t('delete')">✕</button>
               </div>

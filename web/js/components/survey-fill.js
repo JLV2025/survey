@@ -107,8 +107,8 @@ window.__surveyFill = {
       if (alreadySubmitted) return;
       const res = await fetchSurvey(this.routeParams.id);
       if (res.ok && res.data) {
-        this.survey = res.data.survey;
-        this.questions = res.data.questions || [];
+        this.survey = res.data;
+        this.questions = (res.data && res.data.questions) || [];
       } else {
         this.error = res.message || this.t('survey_not_found');
       }
