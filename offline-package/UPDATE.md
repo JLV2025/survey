@@ -1,132 +1,217 @@
-# 更新方法
+# Operations Guide
 
-## 快速更新（文件覆盖）
+## Directory Structure
 
-适用于已部署的服务器上更新代码。以管理员身份运行：
+Deployed IIS site layout:
 
-```bat
-net stop w3svc
-xcopy "新版本目录\*" "C:\inetpub\wwwroot\" /E /Y
-net start w3svc
+```
+{site_root}\                 <- IIS site physical path
+├── index.html               <- IIS default document, SPA entry
+├── web.config               <- IIS config (Windows Auth, request filter, .ashx handler)
+├── config.json              <- Admin config (initial_admin)
+├── data/
+│   └── survey.json          <- JSON database (surveys, questions, answers)
+├── asp/
+│   └── api.ashx             <- Backend API (ASP.NET C# IHttpHandler)
+└── web/
+    ├── css/style.css
+    ├── js/
+    │   ├── api.js           <- API client
+    │   ├── app.js           <- Vue app + router
+    │   ├── i18n.js          <- i18n (zh/en)
+    │   ├── components/      <- Vue components
+    │   └── vendor/          <- Third-party libs (Vue 3 + ECharts)
+    └── logo.gif
 ```
 
-或者只覆盖变更文件：
+## Deployment
 
-| 变更内容 | 需更新文件 |
-|---------|-----------|
-| 前端页面 | `web/**/*` 全部覆盖 |
-| 后端 API | `asp/api.ashx` |
-| IIS 配置 | `web.config` |
-| 管理员 | `config.json` |
+### One-Click Deploy
 
-更新后运行 `iisreset` 或 `net stop w3svc && net start w3svc` 生效。
+1. Copy `offline-package/` to the server
+2. Right-click `install.bat` → **Run as administrator**
+3. The script auto-detects existing installation and prompts:
+   - **Fresh install** — if no Survey site exists
+   - **[U] Update** — if Survey site exists, keep all data
+   - **[R] Reinstall** — if Survey site exists, DELETE all data
+   - **[C] Cancel** — exit without changes
+4. Edit `config.json` → set `initial_admin` to your domain username (lowercase)
+5. Verify: `curl http://localhost/asp/api.ashx?path=health`
 
-## 保留数据更新
+### Smart Detection Logic
 
-只替换代码文件，不覆盖数据目录：
+```
+install.bat
+├── Admin check
+├── Detect: Survey site in IIS?
+│   ├── NO  → Fresh install
+│   │         ├── Check port 80 conflicts
+│   │         │   ├── Free → proceed
+│   │         │   ├── Default Web Site → auto-remove
+│   │         │   └── Other site → warn
+│   │         └── setup-iis.ps1 -Mode Fresh
+│   └── YES → Show state, path, port → Prompt [U/R/C]
+│              ├── Update:
+│              │   ├── Backup old-path/data/survey.json
+│              │   ├── Backup old-path/config.json
+│              │   ├── setup-iis.ps1 -Mode Update -BackupDir ...
+│              │   └── Auto-restore data
+│              ├── Reinstall:
+│              │   ├── User confirms "DELETE"
+│              │   ├── Delete old data
+│              │   └── setup-iis.ps1 -Mode Fresh
+│              └── Cancel → exit
+```
+
+### Custom Port
+
+```powershell
+.\setup-iis.ps1 -Mode Fresh -Port 8080
+```
+
+### What setup-iis.ps1 Does
+
+1. Install IIS + Windows Auth + ASP.NET 4.8 features (idempotent)
+2. Resolve port conflicts (auto-remove Default Web Site if needed)
+3. Remove old Survey site + app pool
+4. Clean ASP.NET temporary cache
+5. Create app pool (.NET 4.0, Integrated, AlwaysRunning, no idle timeout)
+6. Create IIS site
+7. Configure Windows Authentication (enabled), Anonymous (disabled)
+8. Initialize fresh data OR restore from backup (Update mode)
+9. Health check
+
+## Update
+
+### Automated (Recommended)
+
+Copy new `offline-package/` to server, run `install.bat` as admin, choose **[U] Update**.
+
+The script:
+1. Reads old site path from IIS
+2. Backs up `survey.json` + `config.json` to `%TEMP%`
+3. Deletes old site + app pool
+4. Cleans ASP.NET temp cache
+5. Creates fresh site + pool
+6. Restores data from backup
+7. Runs health check
+
+Data is NEVER overwritten during update — the script backs up before any destructive action.
+
+### Manual
 
 ```bat
-xcopy "新版本\web\*" "C:\inetpub\wwwroot\web\" /E /Y
-xcopy "新版本\asp\*" "C:\inetpub\wwwroot\asp\" /E /Y
-copy "新版本\web.config" "C:\inetpub\wwwroot\web.config" /Y
-:: 不要覆盖 data/survey.json
-:: 不要覆盖 config.json
+iisreset /stop
+xcopy "new\web\*" "{site_path}\web\" /E /Y
+xcopy "new\asp\*" "{site_path}\asp\" /E /Y
+copy "new\web.config" "{site_path}\web.config" /Y
+copy "new\index.html" "{site_path}\index.html" /Y
+iisreset /start
+```
+
+### Single File Update
+
+| Change | Files | IIS Restart |
+|--------|-------|-------------|
+| Frontend pages | `web/js/components/*.js` | No (clear browser cache) |
+| Styles | `web/css/style.css` | No (clear browser cache) |
+| Backend API | `asp/api.ashx` | Yes (`iisreset`) |
+| IIS config | `web.config` | Yes (`iisreset`) |
+
+## Verification
+
+```bat
+:: Health check
+curl http://localhost/asp/api.ashx?path=health
+:: Expected: {"ok":true,"data":"OK"}
+
+:: Current user (verify Windows Auth)
+curl http://localhost/asp/api.ashx?path=me
+:: Expected: {"ok":true,"data":{"username":"DOMAIN\\user","is_admin":false}}
+
+:: Admin (after editing config.json)
+curl http://localhost/asp/api.ashx?path=me
+:: Expected: "is_admin":true
+```
+
+## Data Backup
+
+### Manual Backup
+
+```bat
+set "DATE=%date:~0,4%%date:~5,2%%date:~8,2%"
+copy "{site_path}\data\survey.json" "C:\backup\survey_%DATE%.json"
+copy "{site_path}\config.json" "C:\backup\config_%DATE%.json"
+```
+
+### Restore
+
+```bat
+copy "C:\backup\survey_20260606.json" "{site_path}\data\survey.json" /Y
 iisreset
 ```
 
-## 更新后验证
+## Troubleshooting
 
-```bat
-curl http://localhost/asp/api.ashx?path=health
-:: 预期: {"ok":true,"data":"OK"}
+### 401 Authentication Failure
 
-curl http://localhost/asp/api.ashx?path=me
-:: 预期: {"ok":true,"data":{"username":"你的域账号",...}}
-```
-
-## 数据备份
-
-更新前备份数据库和配置：
-
-```bat
-copy "C:\inetpub\wwwroot\data\survey.json" "C:\backup\survey_%date:~0,4%%date:~5,2%%date:~8,2%.json"
-copy "C:\inetpub\wwwroot\config.json" "C:\backup\config_%date:~0,4%%date:~5,2%%date:~8,2%.json"
-```
-
-恢复数据：
-
-```bat
-copy "C:\backup\survey_20260604.json" "C:\inetpub\wwwroot\data\survey.json" /Y
-```
-
-## 常见问题
-
-### 401 认证失败
-
-检查 IIS 认证设置：
+Check Windows Auth:
 
 ```bat
 %SystemRoot%\System32\inetsrv\appcmd.exe list config "Survey" /section:windowsAuthentication
 %SystemRoot%\System32\inetsrv\appcmd.exe list config "Survey" /section:anonymousAuthentication
 ```
 
-正确配置：Windows Auth `enabled:true`，Anonymous Auth `enabled:false`。
+Correct: Windows Auth `enabled:true`, Anonymous `enabled:false`.
 
-### 删除操作不生效
-
-确认 `web.config` 中 `<authorization>` 节点是 `<allow users="*" />` 而非 `<deny users="?" />`。
-
-### 静态文件缓存
-
-前端更新后若页面未变化，清除浏览器缓存，或将 `index.html` 中脚本引用版本号递增：
-
-```html
-<script src="/web/js/app.js?v=8"></script>
+If locked:
+```bat
+%SystemRoot%\System32\inetsrv\appcmd.exe unlock config /section:windowsAuthentication
+%SystemRoot%\System32\inetsrv\appcmd.exe set config "Survey" /section:windowsAuthentication /enabled:true
 ```
 
-### IIS 不识别 .ashx
+### DELETE Returns 405
 
+`web.config` must remove WebDAV:
+```xml
+<modules>
+  <remove name="WebDAVModule" />
+</modules>
+<handlers>
+  <remove name="WebDAV" />
+</handlers>
+```
+Current `web.config` already includes this.
+
+### Stale Browser Cache
+
+Increment script version in `index.html`:
+```html
+<script src="/web/js/app.js?v=9"></script>
+```
+
+### IIS Doesn't Recognize .ashx
+
+```bat
+%SystemRoot%\System32\inetsrv\appcmd.exe list config "Survey" /section:handlers
+```
+If handler missing (rare on Server 2016+):
 ```bat
 %SystemRoot%\Microsoft.NET\Framework64\v4.0.30319\aspnet_regiis.exe -i
 iisreset
 ```
 
-### 访问返回 404
-
-检查站点物理路径和绑定：
+### Site Returns 404
 
 ```bat
 %SystemRoot%\System32\inetsrv\appcmd.exe list site "Survey"
+%SystemRoot%\System32\inetsrv\appcmd.exe list apppool "Survey"
 ```
 
-## 离线更新脚本
+### Slow First Request After Idle
 
-将以下保存为 `update.bat`，与新版本文件放在同一目录：
-
-```bat
-@echo off
-chcp 65001 >nul
-echo Survey System - Update
-
-net session >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERROR] Run as Administrator
-    pause
-    exit /b 1
-)
-
-echo [1/3] Stopping web service...
-net stop w3svc
-
-echo [2/3] Copying files (preserving data)...
-xcopy "web\*" "C:\inetpub\wwwroot\web\" /E /Y /Q
-xcopy "asp\*" "C:\inetpub\wwwroot\asp\" /E /Y /Q
-copy "web.config" "C:\inetpub\wwwroot\web.config" /Y >nul
-
-echo [3/3] Starting web service...
-net start w3svc
-
-echo Update complete.
-echo Verify: curl http://localhost/asp/api.ashx?path=health
-pause
+`setup-iis.ps1` sets `startMode: AlwaysRunning` + `idleTimeout: 0`. If still slow:
+```powershell
+Import-Module WebAdministration
+Set-ItemProperty -Path "IIS:\AppPools\Survey" -Name startMode -Value "AlwaysRunning"
 ```

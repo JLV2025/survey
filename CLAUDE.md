@@ -1,219 +1,114 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## 规则
 
-## Project Overview
+- **Context7**: 写任何第三方库代码前（ECharts、Vue 3、ASP.NET等），先用 Context7 查最新文档。
+- **先查影响**: 编辑任何符号前，跑 `gitnexus_impact` 报告波及范围。HIGH/CRITICAL 务必警示。
+- **提交前检测**: 提交前跑 `gitnexus_detect_changes()`。
+- **OpenWolf**: 读文件前查 `.wolf/anatomy.md`。写代码前查 `.wolf/cerebrum.md`。
+- **中文**: 对话、注释一律简体中文。
 
-Internal Survey System - Lightweight enterprise survey platform deployed on Windows Server 2022.
-- **Backend**: ASP.NET C# (IHttpHandler) - single .ashx file, no NuGet dependencies
-- **Frontend**: Vue 3 + ECharts (bundled vendor files, no CDN)
-- **Database**: JSON file with atomic write + file locking
-- **Authentication**: IIS Windows Authentication (domain users auto-identified)
-- **Port**: 80 (IIS default)
+## 技术栈
 
-## Architecture
+- **后端**: ASP.NET C# (IHttpHandler) — 单 `.ashx` 文件，零 NuGet，纯 .NET 4.8
+- **前端**: Vue 3 + ECharts（本地 vendor 文件，无 CDN，无构建）
+- **数据库**: JSON 文件 + 原子写 + 文件锁 (`data/survey.json`)
+- **认证**: IIS Windows 认证 (NTLM)，域用户自动识别
+- **端口**: 80 (IIS)
+
+## 目录
 
 ```
 survey/
-├── asp/                    # Backend API (single .ashx file)
-│   └── api.ashx            # All HTTP handlers (CRUD for surveys, questions, submissions)
-├── web/                    # Frontend Vue 3 SPA
-│   ├── index.html          # Single entry point
-│   ├── css/style.css       # Tailwind-like utility-first CSS
+├── asp/api.ashx          # 后端 — 全部 HTTP 处理
+├── web/                  # Vue 3 单页
+│   ├── index.html
+│   ├── css/style.css
 │   └── js/
-│       ├── app.js          # Vue 3 router + main app
-│       ├── api.js          # API request wrapper
-│       ├── i18n.js         # i18n (zh/en)
-│       └── components/     # Vue components
-│           ├── survey-fill.js         # Survey fill wizard
-│           ├── survey-stats.js        # ECharts stats page
-│           ├── admin-dashboard.js     # Admin panel entry
-│           ├── admin-survey-list.js   # Survey CRUD
-│           └── survey-designer.js     # Drag-drop designer
-├── data/                   # JSON database
-│   └── survey.json        # All data (surveys, questions, submissions)
-├── config.json             # Initial admin configuration
-├── install.bat             # One-click offline installer
-├── web.config              # IIS configuration
-└── offline-package/        # Offline deployment package
+│       ├── app.js        # Vue 应用 + 路由
+│       ├── api.js        # API 请求封装
+│       ├── i18n.js       # 中英文切换
+│       └── components/   # 问卷填写、统计、管理面板、设计器
+├── data/survey.json      # JSON 数据库
+├── config.json           # 初始管理员配置
+├── sync-offline.bat      # 同步到离线部署包
+├── web.config            # IIS 配置
+└── offline-package/      # 离线部署包（含 install.bat 智能安装/更新）
 ```
 
-## Backend (ASP.NET C#)
+## API 路由
 
-### Single-File API Handler
-- **File**: `asp/api.ashx`
-- **Pattern**: `IHttpHandler` with `ProcessRequest(HttpContext)`
-- **Routing**: Path-based routing via `path` query string
-- **JSON**: Hand-rolled parser/serializer (C# 5 compatible)
-- **No dependencies**: Pure .NET Framework 4.8 built-in APIs
+全部通过 `GET/POST /asp/api.ashx?path=<route>`:
 
-### API Routes
-All routes via `/asp/api.ashx?path=<route>`:
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | health | 健康检查 |
+| GET | me | 当前用户 (username, is_admin) |
+| GET | surveys/{id} | 已发布问卷详情 |
+| POST | surveys/{id}/submit | 提交答卷 |
+| GET | surveys/{id}/stats | 问卷统计 |
+| GET/POST/PUT/DELETE | admin/surveys[/{id}] | 问卷 CRUD（管理员） |
+| POST/PUT/DELETE | admin/surveys/{id}/questions[/{qid}] | 题目 CRUD |
+| PUT | admin/surveys/{id}/questions/reorder | 重排题目 |
+| GET | admin/surveys/{id}/export | CSV 导出 (UTF-8 BOM) |
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | health | Health check |
-| GET | me | Current user info (username, is_admin) |
-| GET | check-admin | Check admin permission |
-| GET | surveys/{id} | Get published survey |
-| GET | surveys/{id}/check | Check if submitted |
-| POST | surveys/{id}/submit | Submit response |
-| GET | surveys/{id}/stats | Get statistics |
-| GET | admin/surveys | List surveys (admin) |
-| POST | admin/surveys | Create survey (admin) |
-| PUT | admin/surveys/{id} | Update survey (admin) |
-| DELETE | admin/surveys/{id} | Delete survey (admin) |
-| POST | admin/surveys/{id}/questions | Create question |
-| PUT | admin/surveys/{id}/questions/{qid} | Update question |
-| DELETE | admin/surveys/{id}/questions/{qid} | Delete question |
-| PUT | admin/surveys/{id}/questions/reorder | Reorder questions |
-| GET | admin/surveys/{id}/export | CSV export |
+## 认证
 
-### Authentication
-- **NTLM**: Extracts username from `LOGON_USER`, `AUTH_USER`, or `REMOTE_USER`
-- **Admin check**: Compares against `admins` array in `survey.json` or `config.json` initial_admin
-- **Anonymous**: Disabled (IIS Windows Authentication required)
+- IIS 从 `LOGON_USER` → `AUTH_USER` → `REMOTE_USER` 提取用户名
+- 管理员：用户名在 `survey.json` 或 `config.json` 的 `admins[]` 数组中
+- 不开放匿名访问（IIS Windows 认证为必须）
 
-### Data Storage
-- **File**: `data/survey.json`
-- **Atomic writes**: tmp file + rename + file lock
-- **Empty DB**: Returns empty arrays for surveys, questions, options, submissions, answers, admins
-
-## Frontend (Vue 3)
-
-### Single HTML Entry
-- **File**: `web/index.html`
-- **No build**: CDN-free, all vendor files bundled locally
-- **Vue 3**: `vue.global.prod.js` (production build)
-- **ECharts**: `echarts.min.js` (bundled)
-
-### Vue Router
-- **Routes**: Home, Admin, Survey Fill, Survey Stats, Survey Designer
-- **Navigation**: Click nav-brand to go home, admin button for admin panel
-- **Components**: Dynamically rendered via `<component :is="currentView">`
-
-### i18n
-- **Languages**: Chinese (zh), English (en)
-- **Implementation**: Simple dictionary in `i18n.js`
-- **Toggle**: Buttons in nav-right
-
-## Database Schema (JSON)
+## 数据库 (JSON)
 
 ```json
 {
-  "surveys": [
-    {
-      "id": "uuid",
-      "title": "Survey Title",
-      "description": "Description",
-      "status": "draft|published|closed",
-      "is_anonymous": false,
-      "deadline": "ISO8601",
-      "created_at": "ISO8601",
-      "updated_at": "ISO8601"
-    }
-  ],
-  "questions": [
-    {
-      "id": "uuid",
-      "survey_id": "uuid",
-      "title": "Question Title",
-      "type": "single|multi|text",
-      "required": true,
-      "char_limit": 0,
-      "sort_order": 0
-    }
-  ],
-  "options": [
-    {
-      "id": "uuid",
-      "question_id": "uuid",
-      "content": "Option Text",
-      "sort_order": 0
-    }
-  ],
-  "submissions": [
-    {
-      "id": "uuid",
-      "survey_id": "uuid",
-      "username": "domain\\user",
-      "submitted_at": "ISO8601"
-    }
-  ],
-  "answers": [
-    {
-      "id": "uuid",
-      "submission_id": "uuid",
-      "question_id": "uuid",
-      "value": "Answer Value"
-    }
-  ],
-  "admins": [
-    {
-      "id": "uuid",
-      "username": "domain\\admin",
-      "created_at": "ISO8601"
-    }
-  ]
+  "surveys": [{ "id", "title", "description", "status": "draft|published|closed", "is_anonymous", "deadline", "created_at", "updated_at" }],
+  "questions": [{ "id", "survey_id", "title", "type": "single|multi|text", "required", "char_limit", "sort_order" }],
+  "options": [{ "id", "question_id", "content", "sort_order" }],
+  "submissions": [{ "id", "survey_id", "username", "submitted_at" }],
+  "answers": [{ "id", "submission_id", "question_id", "value" }],
+  "admins": [{ "id", "username", "created_at" }]
 }
 ```
 
-## Development Workflow
+## 常用命令
 
-### Verify Installation
-```bash
-# Health check
-curl http://localhost/asp/api.ashx?path=health
-# Expected: {"ok":true,"data":"OK"}
+| 任务 | 命令 |
+|------|------|
+| 安装 | `offline-package\install.bat`（管理员权限） |
+| 健康检查 | `curl http://localhost/asp/api.ashx?path=health` |
+| 用户信息 | `curl http://localhost/asp/api.ashx?path=me` |
+| 重启 IIS | `iisreset` |
+| 查看数据 | `type data\survey.json` |
 
-# User info
-curl http://localhost/asp/api.ashx?path=me
-# Expected: {"ok":true,"data":{"username":"domain\\user","is_admin":false}}
-```
+## 关键事项
 
-### Common Commands
+1. **无构建步骤** — 前端纯 HTML/JS/CSS，后端 IIS 首次请求时编译
+2. **C# 5 兼容** — 使用 Windows Server 默认编译器
+3. **离线部署** — 零外部依赖
+4. **原子写** — JSON 使用临时文件 + 重命名模式保证并发安全
+5. **CSV 导出** — UTF-8 BOM 编码，Excel 友好
+6. **仅 Windows** — 依赖 IIS + Windows 认证
 
-| Task | Command |
-|------|---------|
-| Install | `install.bat` (as Administrator) |
-| Restart IIS | `iisreset` |
-| Health check | `curl http://localhost/asp/api.ashx?path=health` |
-| View data | `type data\survey.json` |
-| Edit config | `notepad config.json` |
+## GitNexus
 
-## Key Files
+项目已索引：**survey**（799 符号、1929 关联、68 流程）
 
-| File | Purpose |
-|------|--------|
-| `asp/api.ashx` | Backend API - all HTTP handlers |
-| `web/index.html` | Frontend entry point |
-| `web/js/app.js` | Vue 3 app + router |
-| `web/js/components/survey-fill.js` | Survey fill wizard component |
-| `web/js/components/survey-designer.js` | Drag-drop survey designer |
-| `data/survey.json` | All data (database) |
-| `config.json` | Initial admin configuration |
-| `install.bat` | Offline installer script |
-| `web.config` | IIS configuration |
+| 资源 | 用途 |
+|------|------|
+| `gitnexus://repo/survey/context` | 概览、检查新鲜度 |
+| `gitnexus://repo/survey/processes` | 全部执行流程 |
+| `gitnexus://repo/survey/process/{name}` | 逐步执行追踪 |
 
-## Important Notes
+## 安全
 
-1. **No build step**: Frontend is pure HTML/JS/CSS, no npm/yarn required
-2. **C# 5 compatible**: All backend code works with Windows Server default compiler
-3. **Offline deployment**: No external NuGet packages or CDN dependencies
-4. **Windows-only**: Requires IIS with Windows Authentication enabled
-5. **Atomic writes**: JSON file uses tmp+rename pattern for concurrent access safety
-6. **CSV export**: UTF-8 BOM encoding for Excel compatibility
+- 认证依赖 IIS Windows 认证 (NTLM/Kerberos)
+- 管理员校验：简单字符串比对
+- 无 CSRF token（内网问卷系统可接受）
+- 输入校验：基础校验（如仅已发布问卷可答卷）
 
-## Security Considerations
+## 迁移
 
-- **Authentication**: Relies on IIS Windows Authentication (NTLM/Kerberos)
-- **Admin check**: Simple string comparison against `admins` array
-- **No CSRF**: GET/POST without CSRF tokens (acceptable for internal survey system)
-- **Input validation**: Basic validation in handlers (e.g., survey must be published to accept submissions)
-
-## Migration Notes
-
-- **Database**: Copy `data/survey.json` to new server
-- **Config**: Copy `config.json` with initial_admin settings
-- **IIS**: Run `install.bat` to recreate site and enable Windows auth
-- **Data integrity**: Always backup `survey.json` before operations
+- 复制 `data/survey.json` + `config.json` 到新服务器
+- 运行 `offline-package\install.bat` 重建 IIS 站点
+- 操作前务必备份 `survey.json`
