@@ -11,7 +11,7 @@ set "PKG=%ROOT%offline-package"
 
 :: Ensure target directories exist
 if not exist "%PKG%" mkdir "%PKG%"
-if not exist "%PKG%\asp" mkdir "%PKG%\asp"
+if not exist "%PKG%\http-server" mkdir "%PKG%\http-server"
 if not exist "%PKG%\web\css" mkdir "%PKG%\web\css"
 if not exist "%PKG%\web\js\components" mkdir "%PKG%\web\js\components"
 if not exist "%PKG%\web\js\vendor" mkdir "%PKG%\web\js\vendor"
@@ -19,13 +19,16 @@ if not exist "%PKG%\data" mkdir "%PKG%\data"
 
 echo [1/2] Syncing code files...
 
-:: Backend
-copy /Y "%ROOT%asp\api.ashx" "%PKG%\asp\api.ashx" >nul
-echo    asp/api.ashx
+:: Backend server
+copy /Y "%ROOT%http-server\SurveyServer.cs" "%PKG%\http-server\SurveyServer.cs" >nul
+copy /Y "%ROOT%http-server\SurveyServer.exe.config" "%PKG%\http-server\SurveyServer.exe.config" >nul
+copy /Y "%ROOT%http-server\README.md" "%PKG%\http-server\README.md" >nul
+echo    http-server/*
 
-:: IIS config
-copy /Y "%ROOT%web.config" "%PKG%\web.config" >nul
-echo    web.config
+:: Deploy scripts
+copy /Y "%ROOT%install.bat" "%PKG%\install.bat" >nul
+copy /Y "%ROOT%uninstall.bat" "%PKG%\uninstall.bat" >nul
+echo    install.bat / uninstall.bat
 
 :: Frontend assets
 copy /Y "%ROOT%web\css\style.css" "%PKG%\web\css\style.css" >nul
@@ -47,7 +50,7 @@ if exist "%ROOT%web\logo.gif" (
     echo    web/logo.gif
 )
 
-:: index.html -> package root (IIS default document entry)
+:: index.html -> package root (entry)
 copy /Y "%ROOT%web\index.html" "%PKG%\index.html" >nul
 echo    web/index.html ^=^> offline-package/index.html
 

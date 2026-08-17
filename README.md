@@ -1,7 +1,9 @@
 # 内部调查系统 / Internal Survey System
 
-轻量级企业调查系统，ASP.NET C# 后端 (IHttpHandler) + Vue 3 前端。
-IIS 原生 Windows 集成认证，零编译部署，完全离线安装。
+轻量级企业调查系统。Vue 3 前端 + C# HttpListener 独立服务后端。
+
+Windows 集成认证（NTLM/Kerberos），**域用户打开网页自动识别账号，无需输入密码**。
+JSON 文件存储，完全离线部署，零外部依赖（仅 .NET Framework 4.8，系统自带）。
 
 ---
 
@@ -11,7 +13,7 @@ IIS 原生 Windows 集成认证，零编译部署，完全离线安装。
 - **拖拽设计**：题型面板拖拽到画布创建题目，画布内拖拽排序
 - **发布锁定**：已发布问卷题目不可编辑，防止数据不一致
 - **分步填写**：受访者以分步向导模式填写，草稿自动保存到 localStorage
-- **域认证**：IIS Windows Authentication，域用户自动识别，无需登录
+- **域认证**：Windows 集成认证（NTLM），域用户自动识别，无需登录
 - **防重复提交**：基于用户名的提交锁定，已提交者查看统计页面
 - **匿名调查**：匿名模式下不显示提交者信息，导出不含用户名列
 - **实时统计**：ECharts 饼图 + 文字答案列表，每 30 秒自动刷新
@@ -27,128 +29,124 @@ IIS 原生 Windows 集成认证，零编译部署，完全离线安装。
 |------|------|
 | 域用户（自动识别） | 填写已发布问卷、查看统计结果 |
 | 管理员 | 创建/编辑/删除问卷、设计题目、发布/关闭、导出 CSV、管理管理员 |
-| 匿名用户 | 无访问权限（IIS 层拒绝） |
+| 匿名用户 | 无访问权限（认证层直接拒绝，401） |
 
 ## 技术栈 / Tech Stack
 
 | 层 Layer | 技术 Technology |
 |---|---|
-| 后端 Backend | ASP.NET C# 4.8 (IHttpHandler, 单文件 .ashx) |
+| 后端 Backend | C# 4.8 HttpListener 独立服务（`http-server/SurveyServer.cs` 单文件） |
 | 前端 Frontend | Vue 3 + ECharts 5（本地 vendor，无 CDN） |
 | 存储 Storage | JSON 文件（原子写入 + 文件锁） |
-| 认证 Auth | IIS Windows Authentication（NTLM/Kerberos） |
+| 认证 Auth | Windows 集成认证（NTLM/Kerberos，浏览器自动发凭据） |
 | 导出 Export | CSV (UTF-8 BOM) |
-| 部署 Deploy | 完全离线，零外部依赖 |
+| 部署 Deploy | 完全离线，零外部依赖（.NET Framework 4.8 系统自带，csc.exe 离线编译） |
 
 ## 架构 / Architecture
 
 ```
 survey/
-├── asp/
-│   └── api.ashx                  # 后端 API (单文件 C# IHttpHandler)
-├── web/
-│   ├── index.html                # 前端入口
-│   ├── logo.gif
-│   ├── css/
-│   │   └── style.css
+├── http-server/                 # 后端服务（推荐，全部逻辑在单文件）
+│   ├── SurveyServer.cs          # 认证 + API + 静态文件（单文件 C#）
+│   ├── SurveyServer.exe.config  # 监听配置（默认 http://+:80/，可换端口）
+│   └── README.md
+├── web/                         # 前端（Vue 3 单页）
+│   ├── index.html               # 前端入口
+│   ├── css/style.css
 │   └── js/
-│       ├── api.js                # API 调用封装
-│       ├── app.js                # Vue 3 路由 + 入口
-│       ├── i18n.js               # 国际化 (zh/en)
-│       ├── components/
-│       │   ├── survey-fill.js    # 问卷填写（分步向导）
-│       │   ├── survey-stats.js   # 统计结果（饼图 + 文字列表）
-│       │   ├── admin-dashboard.js    # 管理员概览
-│       │   ├── admin-survey-list.js  # 问卷管理（创建/编辑元信息）
-│       │   ├── admin-users.js        # 管理员管理（增删）
-│       │   └── survey-designer.js    # 拖拽问卷设计器
-│       └── vendor/
-│           ├── vue.global.prod.js
-│           └── echarts.min.js
+│       ├── api.js               # API 请求封装
+│       ├── app.js               # Vue 3 路由 + 入口
+│       ├── i18n.js              # 国际化 (zh/en)
+│       ├── components/          # 6 个 Vue 组件
+│       └── vendor/              # Vue 3 + ECharts（本地文件）
+├── index.html                   # 部署入口（部署时放根目录）
 ├── data/
-│   └── survey.json               # 数据库 (JSON 文件)
-├── config.json                   # 初始管理员配置
-├── web.config                    # IIS 配置
-├── install.bat                   # 一键安装脚本
-├── setup-iis.ps1                 # IIS 配置 PowerShell 脚本
-└── offline-package/              # 离线部署包（含 UPDATE.md）
+│   └── survey.json              # 数据库 (JSON 文件)
+├── config.json                  # 初始管理员配置
+├── install.bat                  # 一键安装（离线编译 + 服务 + 防火墙）
+├── uninstall.bat                # 卸载
+└── offline-package/             # 离线部署包（拷到服务器直接安装）
 ```
+
+> 部署时 `SurveyServer.exe`（install.bat 自动编译生成）与 `web/`、`data/`、
+> `config.json`、`index.html` 同级。
 
 ## 安装部署 / Deployment
 
 ### 前提条件
-- Windows Server 2016/2019/2022
-- IIS 已安装（Web Server + Windows Authentication + ASP.NET 4.8）
-- 已加入域（可选，仅使用域认证时需要）
+
+- Windows Server 2016/2019/2022（或 Windows 10/11 工作站）
+- **.NET Framework 4.8**（系统自带或已安装）
+- 计算机与服务器在同一 **AD 域**（或信任域），用于自动识别账号
+- 服务器无需联网（全部离线）
 
 ### 一键安装（推荐）
-1. 以 **管理员身份** 运行 `install.bat`
-2. 修改 `config.json`，设置 `initial_admin`：
+
+1. 将项目目录（或 `offline-package/`）拷贝到服务器
+2. 以 **管理员身份** 运行 **`install.bat`**
+3. 脚本自动完成：
+   - 用系统自带 csc.exe **离线编译** `SurveyServer.exe`
+   - 注册 URL ACL（`http://+:80/`）
+   - 创建并启动 Windows 服务 **`SurveySvc`**（开机自启）
+   - 防火墙放行 80 端口
+4. 编辑 `config.json` 设置初始管理员：
    ```json
    { "initial_admin": "your_domain_username" }
    ```
-   （支持逗号分隔多个管理员，支持 `DOMAIN\user` 和 `user` 两种格式）
-3. 重启 IIS：`iisreset`
-4. 访问 `http://服务器IP`
+   （小写域账号，可逗号分隔多个，支持 `DOMAIN\user` 和 `user` 两种格式）
+5. **用主机名访问**：`http://服务器主机名/`
 
-### 手动安装
-```batch
-:: 1. 安装 IIS + Windows 认证 + ASP.NET 4.8
-dism /online /enable-feature /featurename:IIS-WebServerRole /all /quiet
-dism /online /enable-feature /featurename:Web-Windows-Auth /all /quiet
-dism /online /enable-feature /featurename:Web-ASP-Net45 /all /quiet
+> 换端口：编辑 `SurveyServer.exe.config` 的 `listen` 值（如 `http://+:8080/`）后重启服务。
 
-:: 2. 注册 ASP.NET 4.8 到 IIS
-"%SystemRoot%\Microsoft.NET\Framework64\v4.0.30319\aspnet_regiis.exe" -i
+### 手动编译（可选）
 
-:: 3. 创建 IIS 站点
-appcmd add apppool /name:"Survey" /managedRuntimeVersion:"v4.0"
-appcmd add site /name:"Survey" /physicalPath:"C:\inetpub\wwwroot" /bindings:"http/*:80:"
-appcmd set app "Survey/" /applicationPool:"Survey"
-
-:: 4. 启用 Windows 认证
-appcmd set config "Survey" /section:windowsAuthentication /enabled:true
-appcmd set config "Survey" /section:anonymousAuthentication /enabled:false
+```bat
+"%SystemRoot%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /codepage:65001 /r:System.ServiceProcess.dll /out:SurveyServer.exe http-server\SurveyServer.cs
 ```
 
 ### 验证安装
+
+```bat
+:: 本机验证（NTLM 自动认证，显示你的域账号）
+curl --ntlm -u : http://localhost/asp/diag.ashx
+
+:: 浏览器验证
+http://<服务器主机名>/asp/diag.ashx
+:: 预期显示: Identity.Name: [DOMAIN\账号]
 ```
-curl http://localhost/asp/api.ashx?path=health
-```
-预期返回：`{"ok":true,"data":"OK"}`
 
-## IIS 认证说明 / Auth Configuration
+## 认证说明 / Auth Configuration
 
-`web.config` 最终配置：
-- `windowsAuthentication enabled="true"` — IIS 提取域用户身份
-- `anonymousAuthentication enabled="false"` — 拒绝未认证请求
-- `<allow users="*" />` — ASP.NET 层放行（应用层 RequireAdmin 保护管理路由）
+- 服务强制 `IntegratedWindowsAuthentication`：未认证请求返回 401 +
+  `WWW-Authenticate: Negotiate`，浏览器自动携带当前 Windows 域账号
+- 后端从 `ctx.User.Identity.Name` 直接取得 `DOMAIN\user`，去掉前缀得用户名
+- 管理员名单：`config.json` 的 `initial_admin` + 后台 `admins[]`（存于 `data/survey.json`）
+- 未认证请求一律 401，身份无法伪造
 
-### 为什么不用 `<deny users="?" />`？
-NTLM 握手对 GET 请求有效，但对 DELETE/PUT/POST 请求可能失败导致 401 循环。
-改为 `<allow users="*" />` 配合应用层权限检查，确保所有 HTTP 方法正常工作。
+**重要**：浏览器（Chrome/Edge）默认只对"本地 Intranet"区域的站点自动发送域凭据。
+**请用主机名/域名访问**（如 `http://survey-server/`），**不要用 IP 地址**，
+否则浏览器不发送凭据，将无法取得账号（401）。
 
 ## 更新部署 / Update
 
-详见 `offline-package/UPDATE.md`。简要步骤：
+详见 `UPDATE.md`。核心：
+
 ```bat
-net stop w3svc
-xcopy "新版本\web\*" "C:\inetpub\wwwroot\web\" /E /Y
-xcopy "新版本\asp\*" "C:\inetpub\wwwroot\asp\" /E /Y
-copy "新版本\web.config" "C:\inetpub\wwwroot\web.config" /Y
-net start w3svc
+sc stop SurveySvc
+:: 覆盖 web/、SurveyServer.exe（保留 data/ 与 config.json）
+sc start SurveySvc
 ```
-（保留 `data/survey.json` 和 `config.json` 不覆盖）
 
 ## 跨服务器迁移
-1. 将项目目录完整复制到新服务器
-2. 运行 `install.bat`
-3. 复制 `data/survey.json` 和 `config.json`（保留原有数据）
-4. 重启 IIS：`iisreset`
+
+1. 将项目目录完整复制到新服务器（含 `data/survey.json`、`config.json`）
+2. 管理员运行 `install.bat`
+3. 数据直接可用（JSON 文件即数据库）
 
 ## API 文档 / API Reference
 
 所有 API 通过单入口访问：
+
 ```
 GET/POST/PUT/DELETE /asp/api.ashx?path=<route>
 ```
@@ -199,8 +197,8 @@ GET/POST/PUT/DELETE /asp/api.ashx?path=<route>
 
 ## 技术说明 / Notes
 
-- 后端使用 `.ashx` (IHttpHandler)，兼容 C# 5.0（Windows Server 自带编译器）
-- 零 NuGet 包依赖，纯 .NET Framework 4.8 内置 API
+- C# 5 兼容（Windows Server 自带 csc.exe 可编译），零 NuGet 包，服务器离线可用
+- 认证、静态文件、API 全部由单个 `SurveyServer.exe` 提供
 - JSON 序列化/反序列化手写实现，无第三方库
 - 文件写入使用 tmp + rename 原子操作 + 文件锁，支持并发读写
 - 前端 Vue 3 + ECharts 已打包为单文件 vendor，无需 npm/yarn

@@ -10,30 +10,35 @@
 
 ## 技术栈
 
-- **后端**: ASP.NET C# (IHttpHandler) — 单 `.ashx` 文件，零 NuGet，纯 .NET 4.8
+- **后端**: C# 4.8 HttpListener 独立服务 — `http-server/SurveyServer.cs` 单文件，零 NuGet，纯 .NET 4.8（系统自带 csc.exe 离线编译）
 - **前端**: Vue 3 + ECharts（本地 vendor 文件，无 CDN，无构建）
 - **数据库**: JSON 文件 + 原子写 + 文件锁 (`data/survey.json`)
-- **认证**: IIS Windows 认证 (NTLM)，域用户自动识别
-- **端口**: 80 (IIS)
+- **认证**: Windows 集成认证 (NTLM/Kerberos)，域用户自动识别，免输入密码
+- **端口**: 80（HttpListener 服务 `SurveySvc`）
 
 ## 目录
 
 ```
 survey/
-├── asp/api.ashx          # 后端 — 全部 HTTP 处理
-├── web/                  # Vue 3 单页
+├── http-server/              # 后端 — HttpListener 独立服务
+│   ├── SurveyServer.cs       # 全部逻辑：认证 + API + 静态文件（单文件 C#）
+│   ├── SurveyServer.exe.config  # 监听配置（默认 http://+:80/）
+│   └── README.md
+├── web/                      # Vue 3 单页
 │   ├── index.html
 │   ├── css/style.css
 │   └── js/
-│       ├── app.js        # Vue 应用 + 路由
-│       ├── api.js        # API 请求封装
-│       ├── i18n.js       # 中英文切换
-│       └── components/   # 问卷填写、统计、管理面板、设计器
-├── data/survey.json      # JSON 数据库
-├── config.json           # 初始管理员配置
-├── sync-offline.bat      # 同步到离线部署包
-├── web.config            # IIS 配置
-└── offline-package/      # 离线部署包（含 install.bat 智能安装/更新）
+│       ├── app.js            # Vue 应用 + 路由
+│       ├── api.js            # API 请求封装
+│       ├── i18n.js           # 中英文切换
+│       └── components/       # 问卷填写、统计、管理面板、设计器
+├── index.html                # 部署入口（部署时放根目录）
+├── data/survey.json          # JSON 数据库
+├── config.json               # 初始管理员配置
+├── install.bat               # 一键安装（编译 + 服务 + 防火墙）
+├── uninstall.bat             # 卸载
+├── sync-offline.bat          # 同步到离线部署包
+└── offline-package/          # 离线部署包（拷到服务器直接安装）
 ```
 
 ## API 路由
@@ -54,9 +59,10 @@ survey/
 
 ## 认证
 
-- IIS 从 `LOGON_USER` → `AUTH_USER` → `REMOTE_USER` 提取用户名
-- 管理员：用户名在 `survey.json` 或 `config.json` 的 `admins[]` 数组中
-- 不开放匿名访问（IIS Windows 认证为必须）
+- HttpListener 强制 `IntegratedWindowsAuthentication`，从 `ctx.User.Identity.Name` 直接取 `DOMAIN\user`（免输入密码）
+- 管理员：用户名在 `config.json` 的 `initial_admin` 或 `survey.json` 的 `admins[]` 数组中
+- 不开放匿名访问（未认证请求返回 401）
+- **浏览器必须用主机名/域名访问**（IP 地址不触发 NTLM 凭据发送）
 
 ## 数据库 (JSON)
 
@@ -75,20 +81,25 @@ survey/
 
 | 任务 | 命令 |
 |------|------|
-| 安装 | `offline-package\install.bat`（管理员权限） |
-| 健康检查 | `curl http://localhost/asp/api.ashx?path=health` |
-| 用户信息 | `curl http://localhost/asp/api.ashx?path=me` |
-| 重启 IIS | `iisreset` |
+| 安装 | `install.bat`（管理员权限） |
+| 卸载 | `uninstall.bat`（管理员权限） |
+| 服务状态 | `sc query SurveySvc` |
+| 重启服务 | `sc stop SurveySvc && sc start SurveySvc` |
+| 健康检查 | `curl --ntlm -u : http://localhost/asp/api.ashx?path=health` |
+| 用户信息 | `curl --ntlm -u : http://localhost/asp/api.ashx?path=me` |
+| 认证诊断 | `curl --ntlm -u : http://localhost/asp/diag.ashx` |
+| 离线编译后端 | `"%SystemRoot%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /codepage:65001 /r:System.ServiceProcess.dll /out:SurveyServer.exe http-server\SurveyServer.cs` |
 | 查看数据 | `type data\survey.json` |
 
 ## 关键事项
 
-1. **无构建步骤** — 前端纯 HTML/JS/CSS，后端 IIS 首次请求时编译
+1. **前端无构建** — 纯 HTML/JS/CSS；后端需用系统 csc.exe 离线编译（`install.bat` 自动完成）
 2. **C# 5 兼容** — 使用 Windows Server 默认编译器
-3. **离线部署** — 零外部依赖
+3. **离线部署** — 零外部依赖，服务器无需联网
 4. **原子写** — JSON 使用临时文件 + 重命名模式保证并发安全
 5. **CSV 导出** — UTF-8 BOM 编码，Excel 友好
-6. **仅 Windows** — 依赖 IIS + Windows 认证
+6. **仅 Windows** — 依赖 Windows 集成认证（HttpListener）
+7. **API 路径兼容** — 前端调用 `/asp/api.ashx?path=`，由服务路由处理（非 IIS 文件路径）
 
 ## GitNexus
 
@@ -102,13 +113,14 @@ survey/
 
 ## 安全
 
-- 认证依赖 IIS Windows 认证 (NTLM/Kerberos)
-- 管理员校验：简单字符串比对
+- 认证依赖 Windows 集成认证 (NTLM/Kerberos)，从 `ctx.User.Identity.Name` 取账号
+- 管理员校验：简单字符串比对（用户名去 `DOMAIN\` 前缀后小写比对）
+- 未认证请求 401 拒绝；HTTP 层无明文口令传输
 - 无 CSRF token（内网问卷系统可接受）
 - 输入校验：基础校验（如仅已发布问卷可答卷）
 
 ## 迁移
 
 - 复制 `data/survey.json` + `config.json` 到新服务器
-- 运行 `offline-package\install.bat` 重建 IIS 站点
-- 操作前务必备份 `survey.json`
+- 运行 `install.bat` 重建服务
+- 数据是 JSON 文件，复制即迁移；操作前务必备份 `survey.json`

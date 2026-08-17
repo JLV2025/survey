@@ -1,217 +1,177 @@
-# Operations Guide
+# 部署操作手册 / Operations Guide
 
-## Directory Structure
+系统为 HttpListener 独立服务（`SurveySvc`），Windows 集成认证，免登录取域账号。
+**服务器无需联网**，所有文件离线部署。
 
-Deployed IIS site layout:
+---
+
+## 目录结构 / Directory Structure
 
 ```
-{site_root}\                 <- IIS site physical path
-├── index.html               <- IIS default document, SPA entry
-├── web.config               <- IIS config (Windows Auth, request filter, .ashx handler)
-├── config.json              <- Admin config (initial_admin)
+offline-package/                <- 部署根目录
+├── http-server/                <- 后端源码
+│   ├── SurveyServer.cs         <- 后端全部逻辑（单文件 C#，含认证/API/静态文件）
+│   ├── SurveyServer.exe.config <- 监听配置（默认 http://+:80/）
+│   └── README.md
+├── web/                        <- 前端（Vue 3 + ECharts）
+│   ├── css/style.css
+│   └── js/...
+├── index.html                  <- 前端入口
 ├── data/
-│   └── survey.json          <- JSON database (surveys, questions, answers)
-├── asp/
-│   └── api.ashx             <- Backend API (ASP.NET C# IHttpHandler)
-└── web/
-    ├── css/style.css
-    ├── js/
-    │   ├── api.js           <- API client
-    │   ├── app.js           <- Vue app + router
-    │   ├── i18n.js          <- i18n (zh/en)
-    │   ├── components/      <- Vue components
-    │   └── vendor/          <- Third-party libs (Vue 3 + ECharts)
-    └── logo.gif
+│   └── survey.json             <- JSON 数据库
+├── config.json                 <- 管理员配置（initial_admin）
+├── install.bat                 <- 一键安装（编译 + 服务 + 防火墙）
+├── uninstall.bat               <- 卸载
+└── UPDATE.md                   <- 本手册
 ```
 
-## Deployment
+部署时 `SurveyServer.exe`（install.bat 自动编译）与 `web/`、`data/`、
+`config.json`、`index.html` 同级。
 
-### One-Click Deploy
+---
 
-1. Copy `offline-package/` to the server
-2. Right-click `install.bat` → **Run as administrator**
-3. The script auto-detects existing installation and prompts:
-   - **Fresh install** — if no Survey site exists
-   - **[U] Update** — if Survey site exists, keep all data
-   - **[R] Reinstall** — if Survey site exists, DELETE all data
-   - **[C] Cancel** — exit without changes
-4. Edit `config.json` → set `initial_admin` to your domain username (lowercase)
-5. Verify: `curl http://localhost/asp/api.ashx?path=health`
+## 部署 / Deployment
 
-### Smart Detection Logic
+### 一键安装
 
-```
-install.bat
-├── Admin check
-├── Detect: Survey site in IIS?
-│   ├── NO  → Fresh install
-│   │         ├── Check port 80 conflicts
-│   │         │   ├── Free → proceed
-│   │         │   ├── Default Web Site → auto-remove
-│   │         │   └── Other site → warn
-│   │         └── setup-iis.ps1 -Mode Fresh
-│   └── YES → Show state, path, port → Prompt [U/R/C]
-│              ├── Update:
-│              │   ├── Backup old-path/data/survey.json
-│              │   ├── Backup old-path/config.json
-│              │   ├── setup-iis.ps1 -Mode Update -BackupDir ...
-│              │   └── Auto-restore data
-│              ├── Reinstall:
-│              │   ├── User confirms "DELETE"
-│              │   ├── Delete old data
-│              │   └── setup-iis.ps1 -Mode Fresh
-│              └── Cancel → exit
-```
+1. 将 `offline-package/` 整个拷贝到服务器
+2. 右键 **`install.bat`** → **以管理员身份运行**
+3. 脚本自动完成：
+   - 用系统自带 csc.exe **离线编译** `SurveyServer.exe`（服务器无需联网）
+   - 注册 URL ACL（`http://+:80/`）
+   - 创建并启动 Windows 服务 **`SurveySvc`**（开机自启）
+   - 防火墙放行 80 端口
+4. 若提示 80 端口被占用：先停止占用进程后重装（见常见问题）
+5. 编辑 `config.json` 设置 `initial_admin`（小写域账号，可逗号分隔多个）
+6. **用主机名访问**：`http://服务器主机名/`
 
-### Custom Port
+### 换端口
 
-```powershell
-.\setup-iis.ps1 -Mode Fresh -Port 8080
-```
+编辑 `http-server/SurveyServer.exe.config`：
 
-### What setup-iis.ps1 Does
-
-1. Install IIS + Windows Auth + ASP.NET 4.8 features (idempotent)
-2. Resolve port conflicts (auto-remove Default Web Site if needed)
-3. Remove old Survey site + app pool
-4. Clean ASP.NET temporary cache
-5. Create app pool (.NET 4.0, Integrated, AlwaysRunning, no idle timeout)
-6. Create IIS site
-7. Configure Windows Authentication (enabled), Anonymous (disabled)
-8. Initialize fresh data OR restore from backup (Update mode)
-9. Health check
-
-## Update
-
-### Automated (Recommended)
-
-Copy new `offline-package/` to server, run `install.bat` as admin, choose **[U] Update**.
-
-The script:
-1. Reads old site path from IIS
-2. Backs up `survey.json` + `config.json` to `%TEMP%`
-3. Deletes old site + app pool
-4. Cleans ASP.NET temp cache
-5. Creates fresh site + pool
-6. Restores data from backup
-7. Runs health check
-
-Data is NEVER overwritten during update — the script backs up before any destructive action.
-
-### Manual
-
-```bat
-iisreset /stop
-xcopy "new\web\*" "{site_path}\web\" /E /Y
-xcopy "new\asp\*" "{site_path}\asp\" /E /Y
-copy "new\web.config" "{site_path}\web.config" /Y
-copy "new\index.html" "{site_path}\index.html" /Y
-iisreset /start
-```
-
-### Single File Update
-
-| Change | Files | IIS Restart |
-|--------|-------|-------------|
-| Frontend pages | `web/js/components/*.js` | No (clear browser cache) |
-| Styles | `web/css/style.css` | No (clear browser cache) |
-| Backend API | `asp/api.ashx` | Yes (`iisreset`) |
-| IIS config | `web.config` | Yes (`iisreset`) |
-
-## Verification
-
-```bat
-:: Health check
-curl http://localhost/asp/api.ashx?path=health
-:: Expected: {"ok":true,"data":"OK"}
-
-:: Current user (verify Windows Auth)
-curl http://localhost/asp/api.ashx?path=me
-:: Expected: {"ok":true,"data":{"username":"DOMAIN\\user","is_admin":false}}
-
-:: Admin (after editing config.json)
-curl http://localhost/asp/api.ashx?path=me
-:: Expected: "is_admin":true
-```
-
-## Data Backup
-
-### Manual Backup
-
-```bat
-set "DATE=%date:~0,4%%date:~5,2%%date:~8,2%"
-copy "{site_path}\data\survey.json" "C:\backup\survey_%DATE%.json"
-copy "{site_path}\config.json" "C:\backup\config_%DATE%.json"
-```
-
-### Restore
-
-```bat
-copy "C:\backup\survey_20260606.json" "{site_path}\data\survey.json" /Y
-iisreset
-```
-
-## Troubleshooting
-
-### 401 Authentication Failure
-
-Check Windows Auth:
-
-```bat
-%SystemRoot%\System32\inetsrv\appcmd.exe list config "Survey" /section:windowsAuthentication
-%SystemRoot%\System32\inetsrv\appcmd.exe list config "Survey" /section:anonymousAuthentication
-```
-
-Correct: Windows Auth `enabled:true`, Anonymous `enabled:false`.
-
-If locked:
-```bat
-%SystemRoot%\System32\inetsrv\appcmd.exe unlock config /section:windowsAuthentication
-%SystemRoot%\System32\inetsrv\appcmd.exe set config "Survey" /section:windowsAuthentication /enabled:true
-```
-
-### DELETE Returns 405
-
-`web.config` must remove WebDAV:
 ```xml
-<modules>
-  <remove name="WebDAVModule" />
-</modules>
-<handlers>
-  <remove name="WebDAV" />
-</handlers>
+<add key="listen" value="http://+:8080/" />
 ```
-Current `web.config` already includes this.
 
-### Stale Browser Cache
+复制到部署根目录后重启服务：`sc stop SurveySvc && sc start SurveySvc`
 
-Increment script version in `index.html`:
+### 卸载
+
+管理员运行 **`uninstall.bat`**（停止并删除服务、移除 URL ACL 与防火墙规则）。
+
+---
+
+## 更新 / Update
+
+### 一键更新
+
+将新版 `offline-package/` 拷贝到服务器，管理员运行 **`install.bat`**（数据不丢失）。
+
+### 手动更新
+
+```bat
+sc stop SurveySvc
+:: 覆盖前端与后端（保留 data/ 和 config.json）
+xcopy "新版本\web\*" "部署目录\web\" /E /Y
+copy "新版本\SurveyServer.exe" "部署目录\SurveyServer.exe" /Y
+sc start SurveySvc
+```
+
+> 后端源码变更需重编译：
+> ```bat
+> "%SystemRoot%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /codepage:65001 /r:System.ServiceProcess.dll /out:SurveyServer.exe http-server\SurveyServer.cs
+> ```
+
+### 单文件更新对照
+
+| 变更 | 文件 | 需重启 |
+|------|------|--------|
+| 前端页面 | `web/js/components/*.js` | 否（清浏览器缓存） |
+| 样式 | `web/css/style.css` | 否（清浏览器缓存） |
+| 后端 API | `SurveyServer.exe` | `sc restart SurveySvc` |
+| 监听配置 | `SurveyServer.exe.config` | `sc restart SurveySvc` |
+
+> **更新时永远不要覆盖** `data/survey.json` 与 `config.json`。
+
+---
+
+## 验证 / Verification
+
+```bat
+:: 健康检查
+curl --ntlm -u : http://localhost/asp/api.ashx?path=health
+:: 预期: {"ok":true,"data":"OK"}
+
+:: 当前用户（验证认证）
+curl --ntlm -u : http://localhost/asp/api.ashx?path=me
+:: 预期: {"ok":true,"data":{"username":"你的域账号","is_admin":...}}
+
+:: 认证诊断页（浏览器）
+:: http://<服务器主机名>/asp/diag.ashx
+:: 预期显示 Identity.Name: [DOMAIN\账号]
+```
+
+---
+
+## 数据备份 / Data Backup
+
+### 备份
+
+```bat
+copy "部署目录\data\survey.json" "C:\backup\survey_%date:~0,4%%date:~5,2%%date:~8,2%.json"
+copy "部署目录\config.json" "C:\backup\config_%date:~0,4%%date:~5,2%%date:~8,2%.json"
+```
+
+### 恢复
+
+```bat
+copy "C:\backup\survey_20260606.json" "部署目录\data\survey.json" /Y
+sc restart SurveySvc
+```
+
+---
+
+## 常见问题 / Troubleshooting
+
+### 取不到用户账号（401 / 空用户名）
+
+**① 访问方式（最常见）**：必须用**主机名/域名**访问（`http://服务器名/`），
+**不要用 IP 地址**——Chrome/Edge 默认不向非 Intranet 区域发送域凭据。
+
+**② 服务与认证**：
+```bat
+sc query SurveySvc
+curl --ntlm -u : http://localhost/asp/diag.ashx
+```
+`Identity.Name` 为空 → 重新运行 `install.bat`（确保 exe 为最新编译）。
+
+### 管理员无法编辑问卷
+
+- `config.json` 的 `initial_admin` 必须是**小写域账号**（不带 `DOMAIN\` 前缀）
+- 先用 `/asp/diag.ashx` 确认能取到账号，再检查 `is_admin`
+
+### 80 端口被占用
+
+```bat
+netstat -ano | findstr ":80 "
+:: 停止占用进程/旧服务后重装：
+sc stop SurveySvc
+install.bat
+```
+或改端口（见"换端口"）。
+
+### 服务启动失败
+
+```bat
+sc query SurveySvc
+:: 事件查看器 > Windows 日志 > 应用程序
+```
+常见原因：80 端口被占用、缺少 .NET Framework 4.8。重新运行 `install.bat` 重建。
+
+### 前端不更新
+
+清浏览器缓存，或递增 `index.html` 中脚本版本号：
+
 ```html
 <script src="/web/js/app.js?v=9"></script>
-```
-
-### IIS Doesn't Recognize .ashx
-
-```bat
-%SystemRoot%\System32\inetsrv\appcmd.exe list config "Survey" /section:handlers
-```
-If handler missing (rare on Server 2016+):
-```bat
-%SystemRoot%\Microsoft.NET\Framework64\v4.0.30319\aspnet_regiis.exe -i
-iisreset
-```
-
-### Site Returns 404
-
-```bat
-%SystemRoot%\System32\inetsrv\appcmd.exe list site "Survey"
-%SystemRoot%\System32\inetsrv\appcmd.exe list apppool "Survey"
-```
-
-### Slow First Request After Idle
-
-`setup-iis.ps1` sets `startMode: AlwaysRunning` + `idleTimeout: 0`. If still slow:
-```powershell
-Import-Module WebAdministration
-Set-ItemProperty -Path "IIS:\AppPools\Survey" -Name startMode -Value "AlwaysRunning"
 ```

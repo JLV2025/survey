@@ -18,3 +18,18 @@ log.txt
 .wolf/hooks/_session.json
 .wolf/memory.md
 .wolf/token-ledger.json
+
+# ===== 隐私数据（不推送） =====
+# 数据库（含答卷用户名等真实数据）
+data/survey.json
+offline-package/data/survey.json
+# 管理员配置（含域账号）
+config.json
+offline-package/config.json
+
+# ===== 编译产物 =====
+*.exe
+
+# ===== 临时/测试脚本 =====
+_*.ps1
+_*.bat
